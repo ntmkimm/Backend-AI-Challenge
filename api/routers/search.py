@@ -28,6 +28,7 @@ async def search_text(
     try:
         start_time = time.time()
         queries = get_valid_queries(queries=queries)
+        print('before search')
         all_answers = redis_service.get_all_answers_cached_redis(
             queries=queries,
             clip_service=clip_service,
@@ -36,6 +37,7 @@ async def search_text(
             ttl_seconds = 3600 
         )
         # Group by video ID
+        print('before rerank')
         video_groups = defaultdict(lambda: [[] for _ in range(len(queries))])
         for stage_idx, hits in enumerate(all_answers):
             for h in hits:

@@ -15,7 +15,7 @@ def delete_index():
     # Configuration
     host = os.getenv("ELASTICSEARCH_HOST", "elasticsearch")
     port = os.getenv("ELASTICSEARCH_PORT", "9200")
-    index_name = "aic2025_ocr"
+    index_name = "aic2025"
     
     print("🗑️  Deleting Elasticsearch Index")
     print("=" * 50)

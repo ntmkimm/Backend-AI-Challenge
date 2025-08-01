@@ -122,7 +122,7 @@ for _dir in dirs:
             pixel_values = pixel_values.to(torch.bfloat16).cuda()
             response = chat_fn(tokenizer, pixel_values, question, generation_config, history=None, return_history=False)
             response = re.sub(r'\b\d{2}:\d{2}:\d{2}\b', '', response.strip().lower())
-            dic[name] = response.replace("*", "").replace("\n", " ").replace("\r", " ")
+            dic[name[9:-5]] = response.replace("*", "").replace("\n", " ").replace("\r", " ")
             
     with open("ocr.json", "w") as f:
         json.dump(dic, f, indent=4)

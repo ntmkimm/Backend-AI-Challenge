@@ -141,6 +141,7 @@ def search_one_query(
     r += 1
     print(r)
     # ASR results (Elastic Search)
+    print(buffer['asr'])
     # if buffer['asr']:
     #     for video_id, frame_id, score, path in buffer['asr']:
     #         # frame_id của asr là "xxx" với xxx là number

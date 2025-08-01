@@ -82,7 +82,7 @@ class SearchResult:
         video_id = source['video_id']
         
         # Construct filepath using ROOT path
-        filepath = str(ROOT / video_id / "keyframes" / frame_id)
+        filepath = str(ROOT / video_id / ("keyframes/keyframe_" + frame_id + ".webp"))
         
         return cls(
             video_id=video_id,
