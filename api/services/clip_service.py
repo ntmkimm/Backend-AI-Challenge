@@ -6,6 +6,7 @@ from config.settings import CLIP_MODEL, DEVICE, BATCH_SIZE
 import numpy as np
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image
+import asyncio
 
 class CLIPService:
     def __init__(self):
@@ -91,3 +92,13 @@ class CLIPService:
             features = self.model.encode_image(batch_tensor)
             features = F.normalize(features, p=2, dim=-1)  # (N, D)
             return features.cpu().numpy()  # (N, D)
+        
+    async def encode_text_batch_async(self, texts: List[str], batch_size: int = BATCH_SIZE):
+        loop = asyncio.get_running_loop()
+        embeddings = await loop.run_in_executor(None, lambda: self.encode_text_batch(texts, batch_size))
+        return embeddings
+
+    async def encode_image_async(self, image: Image.Image):
+        loop = asyncio.get_running_loop()
+        embedding = await loop.run_in_executor(None, lambda: self.encode_image(image))
+        return embedding

@@ -28,16 +28,15 @@ async def search_text(
     try:
         start_time = time.time()
         queries = get_valid_queries(queries=queries)
-        print('before search')
-        all_answers = redis_service.get_all_answers_cached_redis(
+
+        all_answers = await redis_service.get_all_answers_cached_redis(
             queries=queries,
             clip_service=clip_service,
             milvus_service=milvus_service,
             polar_service=polar_service,
             ttl_seconds = 3600 
         )
-        # Group by video ID
-        print('before rerank')
+
         video_groups = defaultdict(lambda: [[] for _ in range(len(queries))])
         for stage_idx, hits in enumerate(all_answers):
             for h in hits:
@@ -63,7 +62,7 @@ async def search_text(
 
             for curr_fids, curr_scores, _ in tensor_stages[1:]:
                 diff = curr_fids[:, None] - base_fids[None, :]
-                valid = (diff > 0) & (diff <= MAX_FRAME_GAP // len(queries))
+                valid = (diff > 0) & (diff <= MAX_FRAME_GAP)
                 decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 30)
                 boost = curr_scores[:, None] * decay
                 boost = torch.where(valid, boost, torch.zeros_like(boost))
@@ -103,7 +102,7 @@ async def chain_search_text(
 ):
     try:
         queries = get_valid_queries(queries=queries)
-        all_answers = redis_service.get_all_answers_cached_redis(
+        all_answers = await redis_service.get_all_answers_cached_redis(
             queries=queries,
             clip_service=clip_service,
             milvus_service=milvus_service,
@@ -143,7 +142,7 @@ async def chain_search_text(
                 curr_fids, curr_scores, _ = tensor_stages[i]
 
                 diff = curr_fids[:, None] - prev_fids[None, :]
-                valid = (diff > 0) & (diff <= MAX_FRAME_GAP)
+                valid = (diff > 0) & (diff <= MAX_FRAME_GAP // len(queries))
 
                 # decay = (MAX_FRAME_GAP - diff) / MAX_FRAME_GAP
                 decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 50)

@@ -56,3 +56,11 @@ def search_by_ocr_asr(query: str, size: int = 10) -> List[str]:
     """
     service = get_service()
     return service.search(query, size, fields=['ocr_text', 'asr_text'])
+
+import asyncio
+
+async def async_search_by_ocr(query: str, size: int = 10):
+    return await asyncio.to_thread(search_by_ocr, query, size)
+
+async def async_search_by_asr(query: str, size: int = 10):
+    return await asyncio.to_thread(search_by_asr, query, size)

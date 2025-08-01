@@ -9,6 +9,7 @@ from core.utils import get_valid_queries, search_one_query
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import zlib
 import time
+import asyncio
 
 class RedisService:
     def __init__(self):
@@ -39,63 +40,66 @@ class RedisService:
         """
         return json.loads(zlib.decompress(data).decode("utf-8"))
     
-    def get_all_answers_cached_redis(
+    async def get_all_answers_cached_redis(
         self,
         queries: List[Query],
         clip_service: CLIPService,
         milvus_service: MilvusService,
         polar_service: PolarService,
         ttl_seconds: int = 3600,
-        max_workers: int = 8  # Tùy bạn chọn số threads
+        max_workers: int = 8,
     ):
-        text_queries = [q.text for q in queries]
+        text_queries = [q.text if q.text else "" for q in queries]
         cache_key = self.make_cache_key(queries)
 
         try:
-            cached = self.redis_client.get(cache_key)
+            cached = await asyncio.to_thread(self.redis_client.get, cache_key)
             if cached:
                 return self.deserialize_result(cached)
-        except redis.RedisError as e:
+        except Exception as e:
             print(f"[Redis Warning] Failed to fetch from cache: {e}")
 
-        # Cache miss -> proceed with real search
         start_time = time.time()
-        embeddings = clip_service.encode_text_batch(text_queries)
-        if not embeddings: embeddings = [None] * len(queries)
+        embeddings = await asyncio.to_thread(clip_service.encode_text_batch, text_queries)
+        if not embeddings or len(embeddings) != len(queries):
+            embeddings = [None] * len(queries)
         end_time = time.time()
-        print("Embedding time: ", end_time - start_time)
-        
+        print("Embedding time:", end_time - start_time)
+
         start_time = end_time
-        # Hàm phụ cho thread
-        def _search(idx_q):
-            stage_idx, q = idx_q
-            return search_one_query(
+
+        # Tạo các coroutine async, gọi trực tiếp search_one_query đã async
+        tasks = [
+            search_one_query(
                 clip_service=clip_service,
                 milvus_service=milvus_service,
                 polar_service=polar_service,
                 q=q,
-                clip_embedding=embeddings[stage_idx]
+                clip_embedding=embeddings[i]
             )
-        # Dùng thread pool để chạy song song
-        results = [None] * len(queries)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_idx = {
-                executor.submit(_search, (i, q)): i for i, q in enumerate(queries)
-            }
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    results[idx] = future.result()
-                except Exception as exc:
-                    print(f"[Search Error] Query #{idx} generated an exception: {exc}")
-                    results[idx] = None  # hoặc xử lý fallback
+            for i, q in enumerate(queries)
+        ]
+
+        results = []
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+        except Exception as e:
+            print(f"[Search Error] Exception during gathering search tasks: {e}")
+
+        # Xử lý lỗi từng task nếu có Exception
+        for i, res in enumerate(results):
+            if isinstance(res, Exception):
+                print(f"[Search Error] Query #{i} generated an exception: {res}")
+                results[i] = None
+
         end_time = time.time()
         print("Search time", end_time - start_time)
-        
-        # Store into Redis
+
         try:
-            self.redis_client.setex(cache_key, ttl_seconds, self.serialize_result(results))
-        except redis.RedisError as e:
+            await asyncio.to_thread(
+                self.redis_client.setex, cache_key, ttl_seconds, self.serialize_result(results)
+            )
+        except Exception as e:
             print(f"[Redis Warning] Failed to save to cache: {e}")
 
         return results

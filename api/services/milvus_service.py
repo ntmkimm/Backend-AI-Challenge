@@ -1,6 +1,7 @@
 from pymilvus import Collection, connections
 from typing import List, Dict, Any
 from config.settings import MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, TOP_K
+import asyncio
 
 class MilvusService:
     def __init__(self):
@@ -22,23 +23,25 @@ class MilvusService:
         except Exception as e:
             raise ConnectionError(f"Failed to load collection: {str(e)}")
 
-    def search_by_embedding(self, embedding: List[float], limit: int = TOP_K) -> List[Dict[str, Any]]:
-        iterator = self.collection.search_iterator(
-            data=[embedding],
-            anns_field="clip_embedding",
-            param={"metric_type": "COSINE", "params": {"nprobe": 10}},
-            limit=limit,
-            batch_size=200,
-            output_fields=["filepath", "frame_id", "video_id"],
-        )
-        
-        results = []
-        while True:
-            hits = iterator.next()
-            if not hits:
-                iterator.close()
-                break
-            results.extend(hits)
+    async def search_by_embedding(self, embedding: List[float], limit: int = TOP_K) -> List[Dict[str, Any]]:
+        def blocking_search():
+            iterator = self.collection.search_iterator(
+                data=[embedding],
+                anns_field="clip_embedding",
+                param={"metric_type": "COSINE", "params": {"nprobe": 10}},
+                limit=limit,
+                batch_size=200,
+                output_fields=["filepath", "frame_id", "video_id"],
+            )
+            results = []
+            while True:
+                hits = iterator.next()
+                if not hits:
+                    iterator.close()
+                    break
+                results.extend(hits)
+            return results
+        results = await asyncio.to_thread(blocking_search)
         return results
 
     def get_frames_by_video_id(self, video_id: str) -> List[Dict[str, Any]]:

@@ -1,21 +1,21 @@
-from pymilvus import Collection, connections
-from typing import List, Dict, Any
-from config.settings import MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, TOP_K, OBJECT_DATABASE
+import asyncio
+from typing import List
 import polars as pl
+from config.settings import OBJECT_DATABASE
 import re
 
 class PolarService:
     def __init__(self):
         print("Init Polar Service...")
         self.database = self._load_database()
-        
+
     def _load_database(self):
         try:
             return pl.read_parquet(OBJECT_DATABASE)
         except Exception as e:
             raise ConnectionError(f"Failed to load database: {str(e)}")
-    
-    def search_object(self, objects: List[str]):
+
+    async def search_object(self, objects: List[str]):
         query_str = objects[0]
         object_filters = query_str.strip().split(" ")
 
@@ -49,9 +49,15 @@ class PolarService:
         for cond in conditions[1:]:
             combined_condition &= cond
 
-        result = self.database.filter(combined_condition)
+        def blocking_filter():
+            # lazy read & filter với giới hạn
+            lazy_df = pl.scan_parquet(OBJECT_DATABASE)
+            filtered = lazy_df.filter(combined_condition).select(["filepath", "frame_id", "video_id"]).limit(1000)
+            return filtered.collect()
+
+        result = await asyncio.to_thread(blocking_filter)
 
         if result.is_empty():
-            return [] 
+            return []
 
-        return result[["filepath", "frame_id", "video_id"]]
+        return result
