@@ -29,7 +29,7 @@ POLAR_HOST = "localhost"
 POLAR_PORT = 5432
 
 # Search Settings
-TOP_K = 500
+TOP_K = 1000
 MAX_FRAME_GAP = 750
 BATCH_SIZE = 128
 

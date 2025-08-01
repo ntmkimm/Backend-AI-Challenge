@@ -104,6 +104,72 @@ class RedisService:
             )
         except Exception as e:
             print(f"[Redis Warning] Failed to save to cache: {e}")
+        print(1)
+        return results
+    
+    async def get_one_answers_cached_redis(
+        self,
+        query: Query,
+        clip_service: CLIPService,
+        milvus_service: MilvusService,
+        polar_service: PolarService,
+        ttl_seconds: int = 3600,
+        max_workers: int = 8,
+    ):
 
+        cache_key = self.make_cache_key([query])
+        start_time = time.time()
+        try:
+            cached = await asyncio.to_thread(self.redis_client.get, cache_key)
+            if cached:
+                return self.deserialize_result(cached)
+        except Exception as e:
+            print(f"[Redis Warning] Failed to fetch from cache: {e}")
+        end_time = time.time()
+        print("Time Redis Search: ", end_time - start_time)
+        if query.text and query.text.strip():
+            t0 = time.time()
+            embedding = clip_service.encode_single_text(query.text)
+            print("Time for embedding:", time.time() - t0)
+        else:
+            t0 = time.time()
+            embeddings = [None] 
+            print("Time for [None]*len(queries):", time.time() - t0)
+
+        start_time = time.time()
+
+        # Tạo các coroutine async, gọi trực tiếp search_one_query đã async
+        tasks = [
+            search_one_query(
+                clip_service=clip_service,
+                milvus_service=milvus_service,
+                polar_service=polar_service,
+                q=query,
+                clip_embedding=embedding
+            )
+        ]
+
+        results = []
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+        except Exception as e:
+            print(f"[Search Error] Exception during gathering search tasks: {e}")
+
+        # Xử lý lỗi từng task nếu có Exception
+        for i, res in enumerate(results):
+            if isinstance(res, Exception):
+                print(f"[Search Error] Query #{i} generated an exception: {res}")
+                results[i] = None
+
+        end_time = time.time()
+        print("Search time", end_time - start_time)
+
+        try:
+            await asyncio.to_thread(
+                self.redis_client.setex, cache_key, ttl_seconds, self.serialize_result(results)
+            )
+        except Exception as e:
+            print(f"[Redis Warning] Failed to save to cache: {e}")
+        print(1)
         return results
 

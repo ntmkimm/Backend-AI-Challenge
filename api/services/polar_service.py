@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 import polars as pl
-from config.settings import OBJECT_DATABASE
+from config.settings import OBJECT_DATABASE, TOP_K
 import re
 
 class PolarService:
@@ -52,7 +52,7 @@ class PolarService:
         def blocking_filter():
             # lazy read & filter với giới hạn
             lazy_df = pl.scan_parquet(OBJECT_DATABASE)
-            filtered = lazy_df.filter(combined_condition).select(["filepath", "frame_id", "video_id"]).limit(1000)
+            filtered = lazy_df.filter(combined_condition).select(["filepath", "frame_id", "video_id"]).limit(TOP_K)
             return filtered.collect()
 
         result = await asyncio.to_thread(blocking_filter)

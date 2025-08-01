@@ -23,24 +23,30 @@ class MilvusService:
         except Exception as e:
             raise ConnectionError(f"Failed to load collection: {str(e)}")
 
+    def get_search_iterator(self, embedding, batch_size = 200):
+        return self.collection.search_iterator(
+            data=[embedding],
+            anns_field="clip_embedding",
+            param={"metric_type": "COSINE", "params": {"nprobe": 10}},
+            limit=TOP_K,  
+            batch_size=batch_size,
+            output_fields=["filepath", "frame_id", "video_id"],
+        )
+    
     async def search_by_embedding(self, embedding: List[float], limit: int = TOP_K) -> List[Dict[str, Any]]:
         def blocking_search():
-            iterator = self.collection.search_iterator(
+            results = self.collection.search(
                 data=[embedding],
                 anns_field="clip_embedding",
                 param={"metric_type": "COSINE", "params": {"nprobe": 10}},
                 limit=limit,
-                batch_size=200,
                 output_fields=["filepath", "frame_id", "video_id"],
             )
-            results = []
-            while True:
-                hits = iterator.next()
-                if not hits:
-                    iterator.close()
-                    break
-                results.extend(hits)
-            return results
+            # Flatten results for return, each result is a list (one per query vector)
+            # Since data=[embedding], we have only one result list
+            hits = results[0]
+            return [hit.to_dict() for hit in hits]
+        
         results = await asyncio.to_thread(blocking_search)
         return results
 
