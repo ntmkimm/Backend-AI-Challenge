@@ -95,6 +95,7 @@ async def search_text(
 
         # Format lại kết quả
         end_time = time.time()
+        print("TEMPORAL: ")
         print("Time for algorithm: ", end_time - start_time_algo)
         print("Tong thoi gian xu li: ", end_time - start_time)
         final_results.sort(key=lambda x: -x[0])
@@ -113,6 +114,94 @@ async def search_text(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# @router.post("/chain_search", response_model=List[ResultItem])
+# async def chain_search_text(
+#     queries: List[Query],
+#     clip_service: CLIPService = Depends(get_clip_service),
+#     milvus_service: MilvusService = Depends(get_milvus_service),
+#     polar_service: PolarService = Depends(get_polar_service),
+#     redis_service: RedisService = Depends(get_redis_service),
+# ):
+#     try:
+#         start_time = time.time()
+#         queries = get_valid_queries(queries=queries)
+#         all_answers = await redis_service.get_all_answers_cached_redis(
+#             queries=queries,
+#             clip_service=clip_service,
+#             milvus_service=milvus_service,
+#             polar_service=polar_service,
+#             ttl_seconds=3600 
+#         )
+#         start_time_algo = time.time()
+#         # Group by video ID
+#         video_groups = defaultdict(lambda: [[] for _ in range(len(queries))])
+#         for stage_idx, hits in enumerate(all_answers):
+#             for h in hits:
+#                 video_groups[h["video_id"]][stage_idx].append(
+#                     (int(h["frame_id"]), h["score"], h["filepath"])
+#                 )
+
+#         all_chains = []
+
+#         for vid, stage_hits in video_groups.items():
+#             if any(len(s) == 0 for s in stage_hits):
+#                 continue
+
+#             tensor_stages = []
+#             for stage in stage_hits:
+#                 stage_sorted = sorted(stage)
+#                 fids = torch.tensor([f[0] for f in stage_sorted], device=clip_service.device)
+#                 scores = torch.tensor([f[1] for f in stage_sorted], device=clip_service.device)
+#                 tensor_stages.append((fids, scores, stage_sorted))
+
+#             n_stages = len(tensor_stages)
+#             dp_scores = [None] * n_stages
+#             dp_paths = [None] * n_stages
+
+#             dp_scores[0] = tensor_stages[0][1]
+#             dp_paths[0] = [[i] for i in range(len(tensor_stages[0][1]))]
+
+#             for i in range(1, n_stages):
+#                 prev_fids, prev_scores, _ = tensor_stages[i - 1]
+#                 curr_fids, curr_scores, _ = tensor_stages[i]
+
+#                 diff = curr_fids[:, None] - prev_fids[None, :]
+#                 valid = (diff > 0) & (diff <= MAX_FRAME_GAP // len(queries))
+
+#                 # decay = (MAX_FRAME_GAP - diff) / MAX_FRAME_GAP
+#                 decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 50)
+#                 temp_score = dp_scores[i - 1][None, :] + curr_scores[:, None] * decay
+#                 temp_score = torch.where(valid, temp_score, torch.full_like(temp_score, -1e9))
+
+#                 max_vals, max_idxs = temp_score.max(dim=1)
+#                 dp_scores[i] = max_vals
+#                 dp_paths[i] = [dp_paths[i - 1][j.item()] + [k] for j, k in zip(max_idxs, range(len(curr_fids)))]
+
+#             for idx, score in enumerate(dp_scores[-1]):
+#                 for stage_i, path in enumerate(dp_paths[-1][idx]):
+#                     all_chains.append((score.item(), tensor_stages[stage_i][2][path], vid))
+
+#         # Sort chains across all videos
+#         all_chains.sort(key=lambda x: -x[0])
+#         end_time = time.time()
+#         print("CHAIN: ")
+#         print("Time for algorithm: ", end_time - start_time_algo)
+#         print("Tong thoi gian xu li: ", end_time - start_time)
+#         return [
+#             ResultItem(
+#                 id=str(i),
+#                 videoId=video_id,
+#                 title=f"{video_id}/{frame_id}-{i % len(queries)}-{round(score, 2)}",
+#                 thumbnail=f"{MEDIA_SERVER_URL}/{path}",
+#                 confidence=round(score, 4),
+#                 timestamp=str(frame_id)
+#             )
+#             for i, (score, (frame_id, distance_score, path), video_id) in enumerate(all_chains)
+#         ]
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/chain_search", response_model=List[ResultItem])
 async def chain_search_text(
     queries: List[Query],
@@ -122,78 +211,116 @@ async def chain_search_text(
     redis_service: RedisService = Depends(get_redis_service),
 ):
     try:
+        start_time = time.time()
         queries = get_valid_queries(queries=queries)
         all_answers = await redis_service.get_all_answers_cached_redis(
             queries=queries,
             clip_service=clip_service,
             milvus_service=milvus_service,
             polar_service=polar_service,
-            ttl_seconds = 3600 
+            ttl_seconds=3600
         )
-        # Group by video ID
-        video_groups = defaultdict(lambda: [[] for _ in range(len(queries))])
+        start_time_algo = time.time()
+
+        # 1. Gom mọi hit theo stage (KHÔNG group video)
+        n_stage = len(queries)
+        stage_to_hits = [[] for _ in range(n_stage)]
         for stage_idx, hits in enumerate(all_answers):
             for h in hits:
-                video_groups[h["video_id"]][stage_idx].append(
-                    (int(h["frame_id"]), h["score"], h["filepath"])
-                )
+                stage_to_hits[stage_idx].append((
+                    int(h["frame_id"]),
+                    float(h["score"]),
+                    h["filepath"],
+                    h.get("video_id", "")
+                ))
 
-        all_chains = []
-
-        for vid, stage_hits in video_groups.items():
-            if any(len(s) == 0 for s in stage_hits):
+        # 2. Tạo tensor trên GPU cho mỗi stage
+        device = clip_service.device
+        tensor_stages = []
+        for hits in stage_to_hits:
+            if not hits:
+                tensor_stages.append((
+                    torch.tensor([], device=device),
+                    torch.tensor([], device=device),
+                    [],
+                    []
+                ))
                 continue
+            hits_sorted = sorted(hits)
+            fids = torch.tensor([x[0] for x in hits_sorted], device=device)
+            scores = torch.tensor([x[1] for x in hits_sorted], device=device)
+            paths = [x[2] for x in hits_sorted]
+            vids = [x[3] for x in hits_sorted]
+            tensor_stages.append((fids, scores, paths, vids))
 
-            tensor_stages = []
-            for stage in stage_hits:
-                stage_sorted = sorted(stage)
-                fids = torch.tensor([f[0] for f in stage_sorted], device=clip_service.device)
-                scores = torch.tensor([f[1] for f in stage_sorted], device=clip_service.device)
-                tensor_stages.append((fids, scores, stage_sorted))
+        if any(len(stage[0]) == 0 for stage in tensor_stages):
+            return []
 
-            n_stages = len(tensor_stages)
-            dp_scores = [None] * n_stages
-            dp_paths = [None] * n_stages
+        n_stages = len(tensor_stages)
+        dp_scores = [None] * n_stages
+        dp_paths = [None] * n_stages
 
-            dp_scores[0] = tensor_stages[0][1]
-            dp_paths[0] = [[i] for i in range(len(tensor_stages[0][1]))]
+        # 3. DP path logic y hệt code cũ, nhưng toàn bộ trên GPU, không chia video group
+        dp_scores[0] = tensor_stages[0][1]
+        dp_paths[0] = [[i] for i in range(len(tensor_stages[0][1]))]
 
-            for i in range(1, n_stages):
-                prev_fids, prev_scores, _ = tensor_stages[i - 1]
-                curr_fids, curr_scores, _ = tensor_stages[i]
+        for i in range(1, n_stages):
+            prev_fids, prev_scores, _, prev_vids = tensor_stages[i - 1]
+            curr_fids, curr_scores, _, curr_vids = tensor_stages[i]
 
-                diff = curr_fids[:, None] - prev_fids[None, :]
-                valid = (diff > 0) & (diff <= MAX_FRAME_GAP // len(queries))
+            prev_vids_arr = np.array(prev_vids)
+            curr_vids_arr = np.array(curr_vids)
+            # Chỉ nối nếu cùng video_id (bắt buộc), mọi frame mọi video đều được duyệt (full GPU)
+            video_mask = (curr_vids_arr[:, None] == prev_vids_arr[None, :])
+            diff = curr_fids[:, None] - prev_fids[None, :]
+            valid = (diff > 0) & (diff <= MAX_FRAME_GAP // n_stages)
+            video_mask_torch = torch.from_numpy(video_mask).to(device)
+            valid = valid & video_mask_torch
 
-                # decay = (MAX_FRAME_GAP - diff) / MAX_FRAME_GAP
-                decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 50)
-                temp_score = dp_scores[i - 1][None, :] + curr_scores[:, None] * decay
-                temp_score = torch.where(valid, temp_score, torch.full_like(temp_score, -1e9))
+            decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 50)
+            temp_score = dp_scores[i - 1][None, :] + curr_scores[:, None] * decay
+            temp_score = torch.where(valid, temp_score, torch.full_like(temp_score, -1e9))
 
-                max_vals, max_idxs = temp_score.max(dim=1)
-                dp_scores[i] = max_vals
-                dp_paths[i] = [dp_paths[i - 1][j.item()] + [k] for j, k in zip(max_idxs, range(len(curr_fids)))]
+            max_vals, max_idxs = temp_score.max(dim=1)
+            dp_scores[i] = max_vals
+            # Lưu lại đường đi chain (logic hệt cũ)
+            dp_paths[i] = [dp_paths[i - 1][j.item()] + [k] for j, k in zip(max_idxs, range(len(curr_fids)))]
 
-            for idx, score in enumerate(dp_scores[-1]):
-                for stage_i, path in enumerate(dp_paths[-1][idx]):
-                    all_chains.append((score.item(), tensor_stages[stage_i][2][path], vid))
+        # 4. Trích xuất chain tốt nhất cuối cùng
+        all_chains = []
+        for idx, score in enumerate(dp_scores[-1]):
+            path_indices = dp_paths[-1][idx]
+            chain = []
+            for stage_idx, item_idx in enumerate(path_indices):
+                frame_id = tensor_stages[stage_idx][0][item_idx].item()
+                score_ = tensor_stages[stage_idx][1][item_idx].item()
+                path = tensor_stages[stage_idx][2][item_idx]
+                video_id = tensor_stages[stage_idx][3][item_idx]
+                chain.append((frame_id, score_, path, video_id))
+            all_chains.append((score.item(), chain))
 
-        # Sort chains across all videos
+        # 5. Sort và format trả về
         all_chains.sort(key=lambda x: -x[0])
-        return [
-            ResultItem(
-                id=str(i),
-                videoId=video_id,
-                title=f"{video_id}/{frame_id}-{i % len(queries)}-{round(score, 2)}",
-                thumbnail=f"{MEDIA_SERVER_URL}/{path}",
-                confidence=round(score, 4),
-                timestamp=str(frame_id)
-            )
-            for i, (score, (frame_id, distance_score, path), video_id) in enumerate(all_chains)
-        ]
+        end_time = time.time()
+        print("CHAIN: ")
+        print("Time for algorithm: ", end_time - start_time_algo)
+        print("Tong thoi gian xu li: ", end_time - start_time)
+        results = []
+        for i, (score, chain) in enumerate(all_chains):
+            for stage, (frame_id, distance, filepath, video_id) in enumerate(chain):
+                results.append(ResultItem(
+                    id=str(i),
+                    videoId=video_id,
+                    title=f"{video_id}/{frame_id}-{stage}-{round(score, 2)}",
+                    thumbnail=f"{MEDIA_SERVER_URL}/{filepath}",
+                    confidence=round(score, 4),
+                    timestamp=str(frame_id)
+                ))
+        return results
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.post("/nearby_frames", response_model=List[ResultItem])
