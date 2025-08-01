@@ -51,22 +51,25 @@ class RedisService:
     ):
         text_queries = [q.text if q.text else "" for q in queries]
         cache_key = self.make_cache_key(queries)
-
-        try:
-            cached = await asyncio.to_thread(self.redis_client.get, cache_key)
-            if cached:
-                return self.deserialize_result(cached)
-        except Exception as e:
-            print(f"[Redis Warning] Failed to fetch from cache: {e}")
+        start_time = time.time()
+        # try:
+        #     cached = await asyncio.to_thread(self.redis_client.get, cache_key)
+        #     if cached:
+        #         return self.deserialize_result(cached)
+        # except Exception as e:
+        #     print(f"[Redis Warning] Failed to fetch from cache: {e}")
+        end_time = time.time()
+        print("Time Redis Search: ", end_time - start_time)
+        if text_queries and any(x.strip() for x in text_queries):
+            t0 = time.time()
+            embeddings = clip_service.encode_text_batch(text_queries)
+            print("Time for embedding:", time.time() - t0)
+        else:
+            t0 = time.time()
+            embeddings = [None] * len(queries)
+            print("Time for [None]*len(queries):", time.time() - t0)
 
         start_time = time.time()
-        embeddings = await asyncio.to_thread(clip_service.encode_text_batch, text_queries)
-        if not embeddings or len(embeddings) != len(queries):
-            embeddings = [None] * len(queries)
-        end_time = time.time()
-        print("Embedding time:", end_time - start_time)
-
-        start_time = end_time
 
         # Tạo các coroutine async, gọi trực tiếp search_one_query đã async
         tasks = [
