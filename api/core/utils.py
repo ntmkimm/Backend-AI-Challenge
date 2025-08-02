@@ -1,8 +1,4 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List
-from models.schemas import Query
-from typing import List
-from models.schemas import Query
 from PIL import Image
 from io import BytesIO
 import base64

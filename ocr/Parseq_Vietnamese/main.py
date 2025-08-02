@@ -165,11 +165,21 @@ for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
         _infos = sort_bboxes_linewise(_infos, y_thresh=15)
         
         text = ""
+        h, w = frame.shape[:2]
         for _info in _infos:
             x1, y1, x2, y2 = map(int, _info['bbox'])
             score = _info['score']
             
+            # Giới hạn bbox trong frame size
+            x1 = max(0, min(x1, w-1))
+            x2 = max(0, min(x2, w))
+            y1 = max(0, min(y1, h-1))
+            y2 = max(0, min(y2, h))
+            if x1 >= x2 or y1 >= y2:
+                continue
             crop_img = frame[y1:y2, x1:x2]
+            if crop_img.size == 0 or crop_img.shape[0] == 0 or crop_img.shape[1] == 0:
+                continue
             crop_img = Image.fromarray(crop_img)
             crop_img = img_transform(crop_img).unsqueeze(0).to(args.device)
             logits = model(crop_img)

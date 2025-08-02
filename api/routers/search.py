@@ -38,6 +38,7 @@ async def search_text(
             ttl_seconds=3600 
         )
         start_time_algo = time.time()
+        device = clip_service.device
         # Bước 1: Gộp tất cả hits của từng stage
         # all_answers là list (n_stage) của list (top_k dict)
         all_hits = []
@@ -63,7 +64,7 @@ async def search_text(
             scores = torch.tensor([x[1] for x in stage_sorted], device=device)
             tensor_stages.append((fids, scores, stage_sorted))
 
-        # Bước 4: Temporal scoring (giống cũ nhưng toàn bộ dataset)
+        # Temporal scoring (giống cũ nhưng toàn bộ dataset)
         if len(tensor_stages[0][0]) == 0:
             return []  # Không có dữ liệu stage 0
 
@@ -87,7 +88,6 @@ async def search_text(
             num_valid = valid.sum(dim=0).clamp(min=1)
             final_scores += boost.sum(dim=0) / num_valid
 
-        # Bước 5: Kết quả cuối cùng, không cần nhóm theo video
         final_results = []
         for i in range(len(base_fids)):
             frame_id, score, path, video_id = (*base_raw[i][:3], base_raw[i][3])
@@ -134,36 +134,23 @@ async def chain_search_text(
         )
         start_time_algo = time.time()
 
-        # 1. Gom mọi hit theo stage (KHÔNG group video)
-        n_stage = len(queries)
-        stage_to_hits = [[] for _ in range(n_stage)]
-        for stage_idx, hits in enumerate(all_answers):
-            for h in hits:
-                stage_to_hits[stage_idx].append((
-                    int(h["frame_id"]),
-                    float(h["score"]),
-                    h["filepath"],
-                    h.get("video_id", "")
-                ))
-
-        # 2. Tạo tensor trên GPU cho mỗi stage
         device = clip_service.device
         tensor_stages = []
-        for hits in stage_to_hits:
-            if not hits:
+        for hits in all_answers:
+            if hits:
+                hits_sorted = sorted(hits, key=lambda h: int(h["frame_id"]))
+                fids = torch.tensor([int(h["frame_id"]) for h in hits_sorted], device=device)
+                scores = torch.tensor([h["score"] for h in hits_sorted], device=device)
+                paths = [h["filepath"] for h in hits_sorted]
+                vids = [h.get("video_id", "") for h in hits_sorted]
+                tensor_stages.append((fids, scores, paths, vids))
+            else:
                 tensor_stages.append((
                     torch.tensor([], device=device),
                     torch.tensor([], device=device),
                     [],
                     []
                 ))
-                continue
-            hits_sorted = sorted(hits)
-            fids = torch.tensor([x[0] for x in hits_sorted], device=device)
-            scores = torch.tensor([x[1] for x in hits_sorted], device=device)
-            paths = [x[2] for x in hits_sorted]
-            vids = [x[3] for x in hits_sorted]
-            tensor_stages.append((fids, scores, paths, vids))
 
         if any(len(stage[0]) == 0 for stage in tensor_stages):
             return []
@@ -172,7 +159,7 @@ async def chain_search_text(
         dp_scores = [None] * n_stages
         dp_paths = [None] * n_stages
 
-        # 3. DP path logic y hệt code cũ, nhưng toàn bộ trên GPU, không chia video group
+        # DP path logic trên GPU
         dp_scores[0] = tensor_stages[0][1]
         dp_paths[0] = [[i] for i in range(len(tensor_stages[0][1]))]
 
@@ -198,7 +185,7 @@ async def chain_search_text(
             # Lưu lại đường đi chain (logic hệt cũ)
             dp_paths[i] = [dp_paths[i - 1][j.item()] + [k] for j, k in zip(max_idxs, range(len(curr_fids)))]
 
-        # 4. Trích xuất chain tốt nhất cuối cùng
+        # Trích xuất chain tốt nhất cuối cùng
         all_chains = []
         for idx, score in enumerate(dp_scores[-1]):
             path_indices = dp_paths[-1][idx]
@@ -211,7 +198,7 @@ async def chain_search_text(
                 chain.append((frame_id, score_, path, video_id))
             all_chains.append((score.item(), chain))
 
-        # 5. Sort và format trả về
+        # Sort và format trả về
         all_chains.sort(key=lambda x: -x[0])
         end_time = time.time()
         print("CHAIN: ")
