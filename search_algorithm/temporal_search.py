@@ -8,6 +8,7 @@ from collections import defaultdict
 
 # === CONFIG ===
 COLLECTION_NAME = 'AIC25_fullbatch1'
+# COLLECTION_NAME = 'testti'
 DIMENSION = 1024
 TOP_K = 500
 host = "192.168.20.156"
