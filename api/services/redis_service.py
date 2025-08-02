@@ -10,6 +10,7 @@ import time
 import asyncio
 import hashlib
 from core.module import search_one_query
+import pickle
 
 class RedisService:
     def __init__(self):
@@ -39,6 +40,24 @@ class RedisService:
 
     def deserialize_result(self, data: bytes) -> any:
         return json.loads(zlib.decompress(data).decode("utf-8"))
+    
+    def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal"):
+        # Serialize và hash query
+        queries_serialized = json.dumps(
+            [q.dict(exclude={"origin"}) for q in queries],
+            sort_keys=True
+        )
+        query_hash = hashlib.sha1(queries_serialized.encode("utf-8")).hexdigest()
+        return f"search_cache:{user_id}:{mode}:{query_hash}"
+    
+    async def save_tmp_search_results_to_cache(self, redis_key, results, ttl_seconds=300):
+        await asyncio.to_thread(
+            self.redis_client.setex,
+            redis_key,
+            ttl_seconds,
+            pickle.dumps(results)
+        )
+    
 
     async def get_all_answers_cached_redis(
         self,
@@ -122,3 +141,56 @@ class RedisService:
                     print(f"[Redis Warning] Failed to save to cache for key {keys[idx]}: {e}")
 
         return results
+    
+    async def get_one_answer_cached_redis(
+        self,
+        query: Query,
+        clip_service: CLIPService,
+        milvus_service: MilvusService,
+        polar_service: PolarService,
+        ttl_seconds: int = 3600,
+    ):
+        """
+        Trả về kết quả search cho một query, sử dụng Redis cache. Nếu chưa có trong cache thì search, rồi lưu lại vào Redis.
+        """
+        key = self.make_query_cache_key(query)
+        cached_bytes = await asyncio.to_thread(self.redis_client.get, key)
+        if cached_bytes is not None:
+            try:
+                return self.deserialize_result(cached_bytes)
+            except Exception as e:
+                print(f"[Redis Warning] Deserialize failed: {e}")
+
+        # Nếu miss cache hoặc lỗi giải nén: thực hiện search lại
+        # Chuẩn bị text embedding nếu có text
+        clip_embedding = None
+        if query.text and query.text.strip():
+            t0 = time.time()
+            clip_embedding = clip_service.encode_text(query.text)
+            print("Time for embedding one:", time.time() - t0)
+
+        try:
+            result = await search_one_query(
+                clip_service=clip_service,
+                milvus_service=milvus_service,
+                polar_service=polar_service,
+                q=query,
+                clip_embedding=clip_embedding
+            )
+        except Exception as e:
+            print(f"[Search Error] Exception during search_one_query: {e}")
+            result = None
+
+        # Lưu cache nếu search thành công (không lỗi)
+        if result is not None:
+            try:
+                await asyncio.to_thread(
+                    self.redis_client.setex,
+                    key,
+                    ttl_seconds,
+                    self.serialize_result(result)
+                )
+            except Exception as e:
+                print(f"[Redis Warning] Failed to save to cache for key {key}: {e}")
+
+        return result
