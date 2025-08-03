@@ -25,6 +25,7 @@ async def search_one_query(
     
     # Milvus text embedding search (async)
     if q.text and clip_embedding:
+        print("search text")
         tasks.append(milvus_service.search_by_embedding(clip_embedding))
     else:
         tasks.append(asyncio.sleep(0, result=None))

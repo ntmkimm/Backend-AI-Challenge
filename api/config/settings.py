@@ -11,10 +11,15 @@ CORS_ORIGINS = [
 # Milvus Settings
 MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
-COLLECTION_NAME = "AIC25_fullbatch1"
 
-# CLIP Model Settings
-CLIP_MODEL = "ViT-H-14-378-quickgelu"
+# NOTE: CHÚ Ý EMBEDDING
+COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
+CLIP_MODEL = "metaclip"
+ANNS_FIELD_MILVUS = 'metaclip_embedding'
+
+# COLLECTION_NAME = "AIC25_fullbatch1"
+# CLIP_MODEL = "openclip"
+# ANNS_FIELD_MILVUS = 'clip_embedding'
 
 DEVICE = "cuda"  # Will be overridden based on availability
 
@@ -29,7 +34,7 @@ POLAR_HOST = "localhost"
 POLAR_PORT = 5432
 
 # Search Settings
-TOP_K = 1000
+TOP_K = 200
 MAX_FRAME_GAP = 750
 BATCH_SIZE = 128
 

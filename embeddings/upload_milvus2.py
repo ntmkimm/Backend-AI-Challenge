@@ -112,9 +112,15 @@ def main():
         FieldSchema(name="frame_id", dtype=DataType.INT64),
     ])
     collection = Collection(name=COLLECTION_NAME, schema=schema)
-    collection.create_index("clip_embedding", {
-        "metric_type": "COSINE", "index_type": "IVF_FLAT", "params": {"nlist": 16384}
-    })
+    index_params = {
+        "metric_type": "COSINE",
+        "index_type": "HNSW",
+        "params": {
+            "M": 32,  # Increased connectivity
+            "efConstruction": 512  # Higher for better quality
+        }
+    }
+    collection.create_index("clip_embedding", index_params)
     collection.load()
 
     image_paths = []

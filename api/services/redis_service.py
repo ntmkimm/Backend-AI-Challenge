@@ -24,6 +24,12 @@ class RedisService:
             )  # decode=False for binary (compressed)
         except Exception as e:
             raise ConnectionError(f"Failed to connect to Redis: {str(e)}")
+        
+    def make_cache_key(self, queries: List[Query]) -> str:
+        """
+        Generate a stable and JSON-safe cache key.
+        """
+        return json.dumps([json.loads(q.json()) for q in queries], sort_keys=True)
 
     def make_query_cache_key(self, query: Query) -> str:
         """
@@ -40,7 +46,7 @@ class RedisService:
 
     def deserialize_result(self, data: bytes) -> any:
         return json.loads(zlib.decompress(data).decode("utf-8"))
-    
+
     def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal"):
         # Serialize và hash query
         queries_serialized = json.dumps(
@@ -49,7 +55,7 @@ class RedisService:
         )
         query_hash = hashlib.sha1(queries_serialized.encode("utf-8")).hexdigest()
         return f"search_cache:{user_id}:{mode}:{query_hash}"
-    
+
     async def save_tmp_search_results_to_cache(self, redis_key, results, ttl_seconds=300):
         await asyncio.to_thread(
             self.redis_client.setex,
@@ -57,7 +63,6 @@ class RedisService:
             ttl_seconds,
             pickle.dumps(results)
         )
-    
 
     async def get_all_answers_cached_redis(
         self,
@@ -91,11 +96,13 @@ class RedisService:
         # Chỉ search lại những query bị miss cache
         if uncached_indices:
             print(f"Cache miss at: {uncached_indices}")
+            
             # Tạo text_queries (batch) cho những cái cần embed text
             text_queries = [
                 queries[i].text if queries[i].text else ""
                 for i in uncached_indices
             ]
+            
             if text_queries and any(x.strip() for x in text_queries):
                 t0 = time.time()
                 embeddings = clip_service.encode_text_batch(text_queries)
@@ -111,9 +118,9 @@ class RedisService:
                     polar_service=polar_service,
                     q=queries[i],
                     clip_embedding=embeddings[j]
-                )
-                for j, i in enumerate(uncached_indices)
+                ) for j, i in enumerate(uncached_indices)
             ]
+            
             fresh_results = []
             try:
                 fresh_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -121,7 +128,7 @@ class RedisService:
                 print(f"[Search Error] Exception during search: {e}")
                 fresh_results = [None] * len(uncached_indices)
 
-            # Lưu cache cho những query này
+            # Sắp xếp lại kết quả theo thứ tự ban đầu của queries
             for j, idx in enumerate(uncached_indices):
                 res = fresh_results[j]
                 # Nếu lỗi, không lưu cache
@@ -141,7 +148,8 @@ class RedisService:
                     print(f"[Redis Warning] Failed to save to cache for key {keys[idx]}: {e}")
 
         return results
-    
+
+
     async def get_one_answer_cached_redis(
         self,
         query: Query,
@@ -166,7 +174,7 @@ class RedisService:
         clip_embedding = None
         if query.text and query.text.strip():
             t0 = time.time()
-            clip_embedding = clip_service.encode_text(query.text)
+            clip_embedding = clip_service.encode_text_batch([query.text])[0]
             print("Time for embedding one:", time.time() - t0)
 
         try:

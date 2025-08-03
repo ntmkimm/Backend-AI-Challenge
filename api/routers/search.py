@@ -94,6 +94,7 @@ async def search_text(
                 polar_service=polar_service,
                 ttl_seconds=3600 
             )
+
             start_time_algo = time.time()
             device = clip_service.device
             # Bước 1: Gộp tất cả hits của từng stage

@@ -6,14 +6,19 @@ from config.settings import CLIP_MODEL, DEVICE, BATCH_SIZE
 import numpy as np
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image
+from services.MetaCLIP.src.mini_clip.factory import create_model_and_transforms, get_tokenizer
 import asyncio
 
 class CLIPService:
-    def __init__(self):
-        print("Init Clip Service...")
+    def __init__(self, mode = CLIP_MODEL):
+        print(f"Init {CLIP_MODEL} Service...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, _, self.preprocess = open_clip.create_model_and_transforms(CLIP_MODEL, pretrained="dfn5b")
-        self.tokenizer = open_clip.get_tokenizer(CLIP_MODEL)
+        if mode == 'openclip':
+            self.model, _, self.preprocess = open_clip.create_model_and_transforms('ViT-H-14-378-quickgelu', pretrained="dfn5b")
+            self.tokenizer = open_clip.get_tokenizer('ViT-H-14-378-quickgelu')
+        elif mode == 'metaclip':
+            self.model, _, self.preprocess = create_model_and_transforms('ViT-H-14-quickgelu-worldwide@WorldWideCLIP', pretrained='metaclip2_worldwide')
+            self.tokenizer = get_tokenizer("facebook/xlm-v-base")
         self.model = self.model.to(self.device).eval()
 
     def encode_text_batch(self, texts: List[str], batch_size: int = BATCH_SIZE):

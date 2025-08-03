@@ -1,6 +1,6 @@
 from pymilvus import Collection, connections
 from typing import List, Dict, Any
-from config.settings import MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, TOP_K
+from config.settings import MILVUS_HOST, MILVUS_PORT, COLLECTION_NAME, TOP_K, ANNS_FIELD_MILVUS
 import asyncio
 
 class MilvusService:
@@ -26,7 +26,7 @@ class MilvusService:
     def get_search_iterator(self, embedding, batch_size = 200):
         return self.collection.search_iterator(
             data=[embedding],
-            anns_field="clip_embedding",
+            anns_field=ANNS_FIELD_MILVUS,
             param={"metric_type": "COSINE", "params": {"nprobe": 10}},
             limit=TOP_K,  
             batch_size=batch_size,
@@ -37,7 +37,7 @@ class MilvusService:
         def blocking_search():
             results = self.collection.search(
                 data=[embedding],
-                anns_field="clip_embedding",
+                anns_field=ANNS_FIELD_MILVUS,
                 param={"metric_type": "COSINE", "params": {"nprobe": 10}},
                 limit=limit,
                 output_fields=["filepath", "frame_id", "video_id"],
@@ -46,7 +46,7 @@ class MilvusService:
             # Since data=[embedding], we have only one result list
             hits = results[0]
             return [hit.to_dict() for hit in hits]
-        
+        print("đang search")
         results = await asyncio.to_thread(blocking_search)
         return results
 
