@@ -52,7 +52,7 @@ class PolarService:
         def blocking_filter():
             # lazy read & filter với giới hạn
             lazy_df = pl.scan_parquet(OBJECT_DATABASE)
-            filtered = lazy_df.filter(combined_condition).select(["filepath", "frame_id", "video_id"]).limit(TOP_K)
+            filtered = lazy_df.filter(combined_condition).select(["filepath", "frame_id", "video_id"])
             return filtered.collect()
 
         result = await asyncio.to_thread(blocking_filter)
