@@ -36,8 +36,8 @@ async def get_stage(
         # Check valid stage_number
         if not 1 <= stage_number <= len(queries):
             raise HTTPException(status_code=400, detail="stage_number out of range")
-        query = queries[stage_number - 1]  # Chọn đúng stage cần search
-
+        queries = get_valid_queries(queries)  
+        query = queries[stage_number - 1] # # Chọn đúng stage cần search
         results = await redis_service.get_one_answer_cached_redis(
             query=query,
             clip_service=clip_service,

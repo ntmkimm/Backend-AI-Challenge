@@ -46,7 +46,6 @@ class MilvusService:
             # Since data=[embedding], we have only one result list
             hits = results[0]
             return [hit.to_dict() for hit in hits]
-        print("đang search")
         results = await asyncio.to_thread(blocking_search)
         return results
 

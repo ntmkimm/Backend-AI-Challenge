@@ -9,6 +9,7 @@ from models.schemas import Query
 
 import asyncio
 from typing import List
+import time
 
 async def search_one_query(
     clip_service: CLIPService,
@@ -17,6 +18,7 @@ async def search_one_query(
     q: Query, 
     clip_embedding: List[float], 
     ):
+    start_time = time.time()
     buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None}
     weighted_score = { 'text': 0.5, 'ocr': 0.5, 'asr': 0.2, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
     
@@ -25,7 +27,6 @@ async def search_one_query(
     
     # Milvus text embedding search (async)
     if q.text and clip_embedding:
-        print("search text")
         tasks.append(milvus_service.search_by_embedding(clip_embedding))
     else:
         tasks.append(asyncio.sleep(0, result=None))
@@ -127,4 +128,7 @@ async def search_one_query(
                 'score': weighted_score['obj'] * 1.0
             }
 
-    return sorted(combined_results.values(), key=lambda x: x['score'], reverse=True)[:TOP_K]
+    combined_results = sorted(combined_results.values(), key=lambda x: x['score'], reverse=True)[:TOP_K]
+    end_time = time.time()
+    print("Time for search: ", end_time - start_time)
+    return combined_results
