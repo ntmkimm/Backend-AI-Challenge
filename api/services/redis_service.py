@@ -36,7 +36,6 @@ class RedisService:
         Chuẩn hóa cache key cho từng query (sort keys, exclude origin, sort obj nếu là list).
         """
         data = query.dict()
-        data.pop("origin", None)
         s = json.dumps(data, sort_keys=True, separators=(',', ':'))
         # Hash để key ngắn gọn
         return "q:" + hashlib.sha1(s.encode('utf-8')).hexdigest()
@@ -49,10 +48,7 @@ class RedisService:
 
     def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal"):
         # Serialize và hash query
-        queries_serialized = json.dumps(
-            [q.dict(exclude={"origin"}) for q in queries],
-            sort_keys=True
-        )
+        queries_serialized = json.dumps([json.loads(q.json()) for q in queries], sort_keys=True)
         query_hash = hashlib.sha1(queries_serialized.encode("utf-8")).hexdigest()
         return f"search_cache:{user_id}:{mode}:{query_hash}"
 
