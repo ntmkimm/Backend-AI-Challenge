@@ -49,7 +49,7 @@ class ElasticsearchClient:
         Process both OCR and ASR files and yield merged documents for indexing.
         Each frame gets one document, with both ocr_text and asr_text if available.
         """
-        ocr_file = video_dir / "ocr.json"
+        ocr_file = video_dir / "ocr_parseq.json"
         asr_file = video_dir / "asr.json"
         ocr_data, asr_data = {}, {}
 

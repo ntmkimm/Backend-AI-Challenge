@@ -82,7 +82,7 @@ class ImageDataset(Dataset):
 # === Load Model ===
 model = AutoModel.from_pretrained(
     "5CD-AI/Vintern-1B-v3_5",
-    torch_dtype=torch.bfloat16,
+    torch_dtype=torch.float16,
     low_cpu_mem_usage=True,
     trust_remote_code=True,
     use_flash_attn=False,
@@ -95,7 +95,7 @@ model = model.eval().cuda()
 chat_fn = model.module.chat if isinstance(model, torch.nn.DataParallel) else model.chat
 
 # === Tokenizer ===
-tokenizer = AutoTokenizer.from_pretrained("5CD-AI/Vintern-1B-v3_5", trust_remote_code=True, use_fast=False)
+tokenizer = AutoTokenizer.from_pretrained("5CD-AI/Vintern-1B-v3_5", trust_remote_code=True, use_fast=True)
 
 # === Main Execution ===
 ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1")
@@ -113,15 +113,16 @@ for _dir in dirs:
     dataloader = DataLoader(ImageDataset(image_paths), batch_size=BATCH_SIZE, shuffle=False)
     
     dic = {}
-    generation_config = dict(max_new_tokens=1024, do_sample=False, num_beams=3, repetition_penalty=3.0)
+    generation_config = dict(max_new_tokens=512, do_sample=False, num_beams=3, repetition_penalty=3.0)
     # question = '<image>\nChỉ trích xuất thông tin dạng chữ và số trong ảnh mà không cung cấp thêm mô tả về ảnh.'
     question = "<image>\nMô tả chi tiết khung cảnh, sự kiện, vật thể, con người xuất hiện trong bức ảnh."
-    for batch_names, batch_images in tqdm(dataloader, desc=f"Processing {message} {_dir.name}"):
-        for name, pixel_values in zip(batch_names, batch_images):
-            pixel_values = pixel_values.to(torch.bfloat16).cuda()
-            response = chat_fn(tokenizer, pixel_values, question, generation_config, history=None, return_history=False)
-            response = re.sub(r'\b\d{2}:\d{2}:\d{2}\b', '', response.strip().lower())
-            dic[name] = response.replace("*", "").replace("\n", " ").replace("\r", " ")
+    with torch.no_grad():
+        for batch_names, batch_images in tqdm(dataloader, desc=f"Processing {message} {_dir.name}"):
+            for name, pixel_values in zip(batch_names, batch_images):
+                pixel_values = pixel_values.to(torch.float16).cuda()
+                response = chat_fn(tokenizer, pixel_values, question, generation_config, history=None, return_history=False)
+                response = re.sub(r'\b\d{2}:\d{2}:\d{2}\b', '', response.strip().lower())
+                dic[name] = response.replace("*", "").replace("\n", " ").replace("\r", " ")
             
     with open(_dir / "scene_vi.json", "w", encoding='utf-8') as f:
         json.dump(dic, f, indent=4)
