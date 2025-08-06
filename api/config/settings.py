@@ -13,25 +13,21 @@ MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
 
 # NOTE: CHÚ Ý EMBEDDING
-COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
-CLIP_MODEL = "metaclip"
-ANNS_FIELD_MILVUS = 'metaclip_embedding'
+# COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
+# CLIP_MODEL = "metaclip"
+# ANNS_FIELD_MILVUS = 'metaclip_embedding'
 
-# COLLECTION_NAME = "AIC25_fullbatch1"
-# CLIP_MODEL = "openclip"
-# ANNS_FIELD_MILVUS = 'clip_embedding'
+COLLECTION_NAME = "AIC25_fullbatch1"
+CLIP_MODEL = "openclip"
+ANNS_FIELD_MILVUS = 'clip_embedding'
 
 DEVICE = "cuda"  # Will be overridden based on availability
 
 OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1/objects.parquet"
 
 # Redis Settings
-REDIS_HOST = "localhost"
+REDIS_HOST = "redis-server"
 REDIS_PORT = 6379
-
-# Polar Settings
-POLAR_HOST = "localhost"
-POLAR_PORT = 5432
 
 # Search Settings
 TOP_K = 200

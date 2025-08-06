@@ -10,6 +10,7 @@ import time
 import asyncio
 import hashlib
 from core.module import search_one_query
+from config.settings import REDIS_HOST, REDIS_PORT
 import pickle
 
 class RedisService:
@@ -20,7 +21,7 @@ class RedisService:
     def _load_client(self):
         try:
             self.redis_client = redis.Redis(
-                host='redis-server', port=6379, db=0, decode_responses=False
+                host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=False
             )  # decode=False for binary (compressed)
         except Exception as e:
             raise ConnectionError(f"Failed to connect to Redis: {str(e)}")

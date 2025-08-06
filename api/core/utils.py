@@ -12,7 +12,7 @@ def get_valid_queries(queries: List[Query]) -> List[Query]:
     for q in queries:
         if not q.text and not q.ocr and not q.asr and not q.origin and not q.obj and not q.image:
             continue
-        if not q.text and q.origin: q.text = q.origin
+        if q.lang != 'eng': q.text = q.origin
         res.append(q)
     return res
 

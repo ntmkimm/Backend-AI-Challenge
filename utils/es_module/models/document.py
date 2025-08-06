@@ -14,29 +14,6 @@ class Document:
     ocr_text: str
     asr_text: str
     
-    # @classmethod
-    # def from_file(cls, video_dir: Path, frame_id: str, text: str) -> 'Document':
-    #     """Create OCRDocument from file data"""
-    #     return cls(
-    #         video_id=video_dir.name,
-    #         frame_id=frame_id,
-    #         ocr_text=text.strip(),
-    #         asr_text=asr.strip()
-    #     )
-    
-    # def to_index_doc(self, index_name: str) -> Dict:
-    #     """Convert to Elasticsearch index document"""
-    #     return {
-    #         '_op_type': 'index',
-    #         "_index": index_name,
-    #         "_id": f"{self.video_id}_{self.frame_id}",
-    #         "_source": {
-    #             "video_id": self.video_id,
-    #             "frame_id": self.frame_id,
-    #             "ocr_text": self.ocr_text,
-    #             "asr_text": self.asr_text
-    #         }
-    #     }
     @classmethod
     def from_file(cls, video_dir, frame_id, ocr_text=None, asr_text=None):
         # video_id logic as before
