@@ -15,7 +15,7 @@ class Args:
     root_bboxes = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/full_batch1')
     output = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    batch_size = 64
+    batch_size = 36
     num_workers = 4
     rotation = 0
 

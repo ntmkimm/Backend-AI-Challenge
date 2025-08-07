@@ -91,7 +91,10 @@ def process_video(video_path, output_folder, maps_folder, clip_threshold, frame_
             ret, frame = cap.read()
             if not ret or frame is None or frame.size == 0:
                 break
-
+            if frame_count < 13:
+                frame_count += 1
+                pbar.update(1)
+                continue
             if (frame_count % (fps // sample_rate) == 0) and (frame_count // (fps // sample_rate)) % (skip_frames + 1) == 0:
                 frames.append(frame)
                 frame_indices.append(frame_count)
@@ -162,7 +165,7 @@ if __name__ == "__main__":
     mp.set_start_method('spawn')
 
     input_folder = '/mlcv2/Datasets/HCMAI24/updated/videos/batch1'
-    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1'
+    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_shot'
     video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
 
     num_gpus = torch.cuda.device_count()

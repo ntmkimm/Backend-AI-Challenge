@@ -11,6 +11,7 @@ import torch.multiprocessing as mp
 from queue import Empty
 import threading
 import numpy as np
+from pathlib import Path
 
 def read_shot_boundaries(scenes_file_path):
     """Reads the shot boundaries from a .scenes.txt file."""
@@ -212,6 +213,10 @@ if __name__ == "__main__":
 
     video_queue = mp.Queue()
     for vf in video_files:
+        _vid_name = Path(vf).stem
+        if _vid_name < "L02_V024": 
+            print(_vid_name)
+            continue
         video_queue.put(vf)
 
     processes = []
