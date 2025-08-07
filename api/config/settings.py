@@ -13,13 +13,13 @@ MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
 
 # NOTE: CHÚ Ý EMBEDDING
-# COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
-# CLIP_MODEL = "metaclip"
-# ANNS_FIELD_MILVUS = 'metaclip_embedding'
+COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
+CLIP_MODEL = "metaclip"
+ANNS_FIELD_MILVUS = 'metaclip_embedding'
 
-COLLECTION_NAME = "AIC25_fullbatch1"
-CLIP_MODEL = "openclip"
-ANNS_FIELD_MILVUS = 'clip_embedding'
+# COLLECTION_NAME = "AIC25_fullbatch1"
+# CLIP_MODEL = "openclip"
+# ANNS_FIELD_MILVUS = 'clip_embedding'
 
 DEVICE = "cuda"  # Will be overridden based on availability
 
@@ -30,9 +30,12 @@ REDIS_HOST = "redis-server"
 REDIS_PORT = 6379
 
 # Search Settings
-TOP_K = 200
+TOP_K = 500
 MAX_FRAME_GAP = 750
 BATCH_SIZE = 128
+
+TIME_CACHE_ONE_QUERY = 3600
+TIME_CACHE_QUERIES = 90
 
 # Media Server
 MEDIA_SERVER_URL = "http://192.168.20.156:9000/aic2025"

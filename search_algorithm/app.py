@@ -49,6 +49,7 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Connect to Milvus
+print("connect")
 try:
     connections.connect(host="192.168.20.156", port="19530")
     collection = Collection("AIC25_fullbatch1")
@@ -56,7 +57,7 @@ try:
 except Exception as e:
     print(f"Error connecting to Milvus: {str(e)}")
     raise
-
+print("connect milvus done")
 # Load CLIP model
 try:
     model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14-378-quickgelu", pretrained="dfn5b")

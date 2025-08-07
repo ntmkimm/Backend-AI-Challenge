@@ -56,4 +56,3 @@ def get_redis_service():
 
 def get_polar_service():
     return service_manager.get_polar_service()
-

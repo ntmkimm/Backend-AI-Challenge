@@ -15,7 +15,7 @@ class Args:
     root_bboxes = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/full_batch1')
     output = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    batch_size = 1
+    batch_size = 64
     num_workers = 4
     rotation = 0
 
@@ -142,7 +142,7 @@ def remove_bboxes_in_y_range(infos, lo_bound, up_bound):
 
 for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
     _video_id = _video_path.stem
-    output_file = args.output / _video_id / "ocr_parseq.json"
+    output_file = args.output / _video_id / "ocr_parseq_new.json"
     # Nếu file đã tồn tại thì skip luôn
     if output_file.exists():
         print(f"Skip {_video_id} (output already exists)")
@@ -166,6 +166,7 @@ for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
         
         text = ""
         h, w = frame.shape[:2]
+        crop_imgs = []
         for _info in _infos:
             x1, y1, x2, y2 = map(int, _info['bbox'])
             score = _info['score']
@@ -181,17 +182,26 @@ for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
             if crop_img.size == 0 or crop_img.shape[0] == 0 or crop_img.shape[1] == 0:
                 continue
             crop_img = Image.fromarray(crop_img)
-            crop_img = img_transform(crop_img).unsqueeze(0).to(args.device)
-            logits = model(crop_img)
-            logits.shape  # torch.Size([1, 26, 95]), 94 characters + [EOS] symbol
+            crop_imgs.append(crop_img)
+            if len(crop_imgs) == args.batch_size:
+                batch = torch.stack([img_transform(img) for img in crop_imgs]).to(args.device)
+                logits = model(batch)
+                logits.shape  # torch.Size([1, 26, 95]), 94 characters + [EOS] symbol
 
-            # Greedy decoding
+                # Greedy decoding
+                pred = logits.softmax(-1)
+                labels, confidences = model.tokenizer.decode(pred)
+                text += " " + " ".join(labels)
+                crop_imgs = []
+                
+        if len(crop_imgs) > 0:
+            batch = torch.stack([img_transform(img) for img in crop_imgs]).to(args.device)
+            logits = model(batch)
             pred = logits.softmax(-1)
-            label, confidence = model.tokenizer.decode(pred)
-            # print(f"{label[0]} - x1: {x1} - y1: {y1} - x2: {x2} y2 {y2}")
-            if (len(label[0]) <= 1): continue
-            text = text + " " + label[0]
-        _video_res[_frame_id] = text
+            labels, confidences = model.tokenizer.decode(pred)
+            text += " " + " ".join(labels)
+            
+        _video_res[_frame_id] = text.lower()
     
     cap.release()
     with open(output_file, 'w') as f:
