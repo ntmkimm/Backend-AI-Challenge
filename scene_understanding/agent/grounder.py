@@ -294,7 +294,6 @@ class TStarUniversalGrounder:
         self,
         video_path: str,
         question: str,
-        options: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 512
     ) -> Dict[str, List[str]]:
@@ -315,7 +314,7 @@ class TStarUniversalGrounder:
             "\nHere is a question about the video:\n" +
             f"Question: {question}\n"
         )
-        system_prompt += f"Options: {options}\n"
+        # system_prompt += f"Options: {options}\n"
         system_prompt += (
             "\nWhen answering this question about the video:\n"
             "1. Identify key objects that can locate the answer (list key objects, separated by commas).\n"

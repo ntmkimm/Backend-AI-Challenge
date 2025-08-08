@@ -4,11 +4,9 @@ import cv2
 import logging
 import numpy as np
 from typing import List, Tuple
-from TStar.interface_grounding import TStarUniversalGrounder
-from TStar.interface_heuristic import YoloWorldInterface, OWLInterface, HeuristicInterface
-from TStar.interface_searcher import TStarSearcher
-from TStar.utilites import save_as_gif
-
+from grounder import TStarUniversalGrounder
+from heuristic import TStarSearcher
+from ultralytics import YOLO
 
 # Configure logging
 logging.basicConfig(
@@ -26,10 +24,9 @@ class TStarFramework:
     def __init__(
         self,
         video_path: str,
-        heuristic: HeuristicInterface,
+        object_detector: YOLO,
         grounder: TStarUniversalGrounder,
         question: str,
-        options: str,
         search_nframes: int = 8,
         grid_rows: int = 4,
         grid_cols: int = 4,
@@ -39,9 +36,8 @@ class TStarFramework:
     ):
         self.video_path = video_path
         self.grounder = grounder
-        self.heuristic = heuristic
+        self.object_detector = object_detector
         self.question = question
-        self.options = options
         self.search_nframes = search_nframes
         self.grid_rows = grid_rows
         self.grid_cols = grid_cols
@@ -81,7 +77,6 @@ class TStarFramework:
         target_objects, cue_objects = self.grounder.inference_query_grounding(
             video_path=self.video_path,
             question=self.question,
-            options=self.options
         )
         self.results["Grounding Objects"] = {"target_objects": target_objects, "cue_objects":cue_objects}
         logger.info(f"Target objects: {target_objects}")
@@ -97,13 +92,14 @@ class TStarFramework:
         videoSearcher =  TStarSearcher(
             video_path=self.video_path,
             target_objects=target_objects,
-            cue_objects=cue_objects,
+            # cue_objects=cue_objects,
+            cue_objects=[],
             search_nframes=self.search_nframes,
             image_grid_shape=(self.grid_rows, self.grid_cols),
             output_dir=self.output_dir,
             confidence_threshold=self.confidence_threshold,
             search_budget=self.search_budget,
-            heuristic=self.heuristic
+            object_detector=self.object_detector
         )
 
         return videoSearcher
@@ -115,8 +111,6 @@ class TStarFramework:
         if visualization:
             all_frames, time_stamps = video_searcher.search()
             self._save_frames(all_frames, time_stamps)
-            self._save_searching_iterations(video_searcher)
-            self._plot_and_save_scores(video_searcher)
         else:
             all_frames, time_stamps = video_searcher.search()
         
@@ -130,7 +124,6 @@ class TStarFramework:
         return self.grounder.inference_qa(
             frames=frames,
             question=self.question,
-            options=self.options
         )
 
     def _save_frames(self, frames: List[np.ndarray], timestamps: List[float]):
@@ -143,56 +136,13 @@ class TStarFramework:
         for idx, (frame, timestamp) in enumerate(zip(frames, timestamps)):
             frame_path = os.path.join(frame_dir, f"frame_{idx}_at_{timestamp:.2f}s.jpg")
             cv2.imwrite(frame_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-            logger.info(f"Saved frame to {frame_path}")
-
-    def _save_searching_iterations(self, video_searcher: TStarSearcher):
-        """
-        Save the frames and their annotations from search iterations.
-        """
-        image_grid_iters = video_searcher.image_grid_iters
-        detect_annotot_iters = video_searcher.detect_annotot_iters
-        
-        for b in range(len(image_grid_iters[0])):
-            images = [image_grid_iter[b] for image_grid_iter in image_grid_iters]
-            anno_images = [detect_annotot_iter[b] for detect_annotot_iter in detect_annotot_iters]
-            output_video_path = os.path.join(self.output_dir, f"search_iterations.gif")
-            save_as_gif(images=anno_images, output_gif_path=output_video_path)
-            logger.info(f"Saved search iterations GIF to {output_video_path}")
-
-    def _plot_and_save_scores(self, video_searcher: TStarSearcher):
-        """
-        Plot and save the score distribution from the search process.
-        """
-        plot_path = os.path.join(self.output_dir, "score_distribution.png")
-        video_searcher.plot_score_distribution(save_path=plot_path)
-        logger.info(f"Score distribution plot saved to {plot_path}")
-
-
-def initialize_heuristic(heuristic_type: str = "owl-vit") -> HeuristicInterface:
-    """
-    Initialize the object detection model based on the selected heuristic type.
-    """
-    if heuristic_type == 'owl-vit':
-        model_name = "google/owlvit-base-patch32"
-        owl_interface = OWLInterface(model_name_or_path=model_name)
-        logger.info("OWLInterface initialized successfully.")
-        return owl_interface
-    elif heuristic_type == 'yolo-World':
-        config_path = "./YOLO-World/configs/pretrain/yolo_world_v2_xl_vlpan_bn_2e-3_100e_4x8gpus_obj365v1_goldg_train_lvis_minival.py"
-        checkpoint_path = "./pretrained/YOLO-World/yolo_world_v2_xl_obj365v1_goldg_cc3mlite_pretrain-5daf1395.pth"
-        yolo_interface = YoloWorldInterface(config_path=config_path, checkpoint_path=checkpoint_path)
-        logger.info("YoloWorldInterface initialized successfully.")
-        return yolo_interface
-    else:
-        raise NotImplementedError(f"Heuristic type '{heuristic_type}' is not implemented.")
 
 
 def run_tstar(
     video_path: str,
     question: str,
-    options: str,
     grounder: str = "gpt-4o",
-    heuristic: str = "owl-vit",
+    object_detector_path: str = "yolov8l-worldv2.pt",
     search_nframes: int = 8,
     grid_rows: int = 4,
     grid_cols: int = 4,
@@ -204,14 +154,13 @@ def run_tstar(
     Execute the TStar video frame search and question-answering process.
     """
     grounder = TStarUniversalGrounder(model_name=grounder)
-    heuristic = initialize_heuristic(heuristic)
+    object_detector = YOLO(object_detector_path)
 
     TStarQA = TStarFramework(
         video_path=video_path,
         grounder=grounder,
-        heuristic=heuristic,
+        object_detector=object_detector,
         question=question,
-        options=options,
         search_nframes=search_nframes,
         grid_rows=grid_rows,
         grid_cols=grid_cols,
@@ -224,8 +173,8 @@ def run_tstar(
 
 if __name__ == "__main__":
     # Example call to run_tstar with the appropriate arguments.
-    video_path = "/data/guoweiyu/LV-Haystack/Datasets/ego4d_data/ego4d_data/v1/256p/38737402-19bd-4689-9e74-3af391b15feb.mp4"
-    question =  "What is the color of the couch?"
-    options = "A) Red, B) Blue, C) Green, D) Yellow"
-
-    run_tstar(video_path, question, options)
+    # video_path = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/video_shot/L01_V001_shots/L01_V001_shot_0221_022394-022509.mp4"
+    video_path = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/scene_understanding/TStar/LVHaystackBench/playground/03e90bbc-7d6b-423c-84d9-b5be3eff11c5.mp4"
+    question =  "What is the color of the cabinet that appears more than two times in the video?"
+    # question="there is a man hold cheese, how many part of cheese that he get?"
+    run_tstar(video_path, question)

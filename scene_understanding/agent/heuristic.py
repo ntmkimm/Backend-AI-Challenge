@@ -7,21 +7,18 @@ from decord import VideoReader, cpu
 from scipy.interpolate import UnivariateSpline
 from tqdm import tqdm
 
-# Import the YOLO interface and HeuristicInterface from TStar package
 from ultralytics import YOLO
 
 
 class TStarSearcher:
     """
     A class to perform keyframe search in a video using object detection and dynamic sampling.
-
-    External attributes and interfaces remain unchanged.
     """
 
     def __init__(
         self,
         video_path: str,
-        heuristic: YOLO,
+        object_detector: YOLO,
         target_objects: List[str],
         cue_objects: List[str],
         search_nframes: int = 8,
@@ -31,27 +28,11 @@ class TStarSearcher:
         confidence_threshold: float = 0.5,
         object2weight: Optional[dict] = None,
     ):
-        """
-        Initialize TStarSearcher with video properties and configuration.
-
-        Args:
-            video_path (str): Path to the input video file.
-            heuristic (HeuristicInterface): YOLO interface for detection.
-            target_objects (List[str]): List of primary objects to detect.
-            cue_objects (List[str]): List of contextual objects to aid detection.
-            search_nframes (int): Number of keyframes to search for.
-            image_grid_shape (Tuple[int, int]): Dimensions for tiling images.
-            search_budget (float): Fraction (or capped value) for the number of frames to process.
-            output_dir (Optional[str]): Directory for saving outputs.
-            confidence_threshold (float): Detection confidence threshold.
-            object2weight (Optional[dict]): Mapping of object names to their detection weights.
-        """
         self.video_path = video_path
         self.target_objects = target_objects
         self.cue_objects = cue_objects
         self.objects = target_objects + cue_objects
         self.search_nframes = search_nframes
-        self.image_grid_shape = image_grid_shape
         self.output_dir = output_dir
         self.confidence_threshold = confidence_threshold
         self.object2weight = object2weight if object2weight else {}
@@ -67,25 +48,44 @@ class TStarSearcher:
 
         # Adjust total frame number based on sampling rate
         self.total_frame_num = int(self.duration * self.fps)
+        self.image_grid_shape = image_grid_shape
+
+        # Auto-adjust grid if video is too short
+        grid_rows, grid_cols = self.image_grid_shape
+        num_frames_in_grid = grid_rows * grid_cols
+        if self.total_frame_num < num_frames_in_grid:
+            side = int(np.floor(np.sqrt(self.total_frame_num)))
+            side = max(side, 1)
+            if side * side > self.total_frame_num:
+                side -= 1
+            # Use as square as possible
+            new_rows = side
+            new_cols = max(1, self.total_frame_num // new_rows)
+            if new_rows * new_cols > self.total_frame_num:
+                new_cols = new_cols - 1
+            if new_cols == 0:
+                new_cols = 1
+            self.image_grid_shape = (new_rows, new_cols)
+            print(f"Auto-adjusted grid to: {self.image_grid_shape}")
+
         self.remaining_targets = target_objects.copy()
         self.search_budget = min(1000, self.total_frame_num * search_budget)
 
         # Initialize distributions and histories
-        self.score_distribution = np.zeros(self.total_frame_num) + 1e-6  # a small constant
+        self.score_distribution = np.zeros(self.total_frame_num) + 1e-6
         self.non_visiting_frames = np.ones(self.total_frame_num)
         self.P = np.ones(self.total_frame_num) * self.confidence_threshold * 0.3
 
         self.P_history = []
         self.Score_history = []
         self.non_visiting_history = []
-        self.image_grid_iters = []      # List of image grid iterations
-        self.detect_annotot_iters = []  # List of annotated image iterations
-        self.detect_bbox_iters = []     # List of bbox detections per iteration
+        self.image_grid_iters = []
+        self.detect_annotot_iters = []
+        self.detect_bbox_iters = []
 
-
-        # Set YOLO interface (heuristic)
-        self.heuristic = heuristic
-        self.heuristic.set_classes(target_objects + cue_objects)
+        # Set YOLO interface (object_detector)
+        self.object_detector = object_detector
+        self.object_detector.set_classes(target_objects + cue_objects)
         for obj in target_objects:
             self.object2weight[obj] = 1.0
         for obj in cue_objects:
@@ -98,19 +98,6 @@ class TStarSearcher:
         output_dir: Optional[str],
         image_grids: Tuple[int, int]
     ) -> Tuple[np.ndarray, List[List[List[str]]]]:
-        """
-        Run object detection on a batch of images using the YOLO interface and map detections to a grid.
-
-        Args:
-            images (List[np.ndarray]): List of images.
-            output_dir (Optional[str]): Directory to save results (unused in refactoring).
-            image_grids (Tuple[int, int]): (rows, cols) grid dimensions.
-
-        Returns:
-            Tuple containing:
-                - confidence_maps: np.ndarray with shape (num_images, grid_rows, grid_cols)
-                - detected_objects_maps: List of detected objects per grid cell for each image.
-        """
         if not images:
             return np.array([]), []
 
@@ -122,24 +109,23 @@ class TStarSearcher:
         detected_objects_maps = []
 
         for image in images:
-            detections = self.heuristic.predict(
+            detections = self.object_detector.predict(
                 source=image,
-                conf=0.001
+                conf=self.confidence_threshold
             )
 
-            # Initialize map for each grid cell
             confidence_map = np.zeros((grid_rows, grid_cols))
             detected_objects_map = [[] for _ in range(grid_rows * grid_cols)]
 
             for detection in detections:
-                for bbox in detection.bboxes:
+                for bbox in detection.boxes:
                     label = int(bbox.cls)
-                    confidence = float(bbox.score)
+                    confidence = float(bbox.conf)
                     object_name = self.objects[label]  # Map class id to name
                     weight = self.object2weight.get(object_name, 0.5)
                     adjusted_confidence = confidence * weight
 
-                    x_min, y_min, x_max, y_max = bbox
+                    x_min, y_min, x_max, y_max =  bbox.xyxy[0].cpu().numpy()
                     box_center_x = (x_min + x_max) / 2
                     box_center_y = (y_min + y_max) / 2
 
@@ -158,34 +144,19 @@ class TStarSearcher:
         return np.stack(confidence_maps), detected_objects_maps
 
     def read_frame_batch(self, video_path: str, frame_indices: List[int]) -> Tuple[List[int], np.ndarray]:
-        """
-        Read a batch of frames from the video at specified indices.
-
-        Args:
-            video_path (str): Video file path.
-            frame_indices (List[int]): Indices of frames to read.
-
-        Returns:
-            Tuple of frame indices and corresponding frame data (numpy array).
-        """
         vr = VideoReader(video_path, ctx=cpu(0))
+        total_frames = len(vr)
+        frame_indices = [min(int(round(idx)), total_frames-1) for idx in frame_indices]
         return frame_indices, vr.get_batch(frame_indices).asnumpy()
 
     def create_image_grid(self, frames: List[np.ndarray], rows: int, cols: int) -> np.ndarray:
-        """
-        Combine a list of frames into a single image grid.
-
-        Args:
-            frames (List[np.ndarray]): List of frames.
-            rows (int): Number of grid rows.
-            cols (int): Number of grid columns.
-
-        Returns:
-            np.ndarray: Combined image grid.
-        """
         if len(frames) != rows * cols:
-            raise ValueError("Frame count does not match grid dimensions")
-        # Resize frames (hardcoded to 200x95 here)
+            # Pad frames with last frame if not enough
+            if len(frames) == 0:
+                pad_frame = np.zeros((95, 200, 3), dtype=np.uint8)
+            else:
+                pad_frame = frames[-1]
+            frames = frames + [pad_frame] * (rows * cols - len(frames))
         resized_frames = [cv2.resize(frame, (200, 95)) for frame in frames]
         grid_rows = [np.hstack(resized_frames[i * cols:(i + 1) * cols]) for i in range(rows)]
         return np.vstack(grid_rows)
@@ -195,22 +166,9 @@ class TStarSearcher:
         images: List[np.ndarray],
         image_grids: Tuple[int, int]
     ) -> Tuple[np.ndarray, List[List[List[str]]]]:
-        """
-        Generate confidence maps and detected objects for image grids.
-
-        Args:
-            images (List[np.ndarray]): List of grid images.
-            image_grids (Tuple[int, int]): Grid dimensions (rows, cols).
-
-        Returns:
-            Tuple containing confidence maps and detected objects maps.
-        """
         return self.imageGridScoreFunction(images, self.output_dir, image_grids)
 
     def store_score_distribution(self):
-        """
-        Save a copy of the current probability distribution and histories.
-        """
         self.P_history.append(copy.deepcopy(self.P).tolist())
         self.Score_history.append(copy.deepcopy(self.score_distribution).tolist())
         self.non_visiting_history.append(copy.deepcopy(self.non_visiting_frames).tolist())
@@ -221,14 +179,6 @@ class TStarSearcher:
         sampled_frame_indices: List[int],
         window_size: int = 5
     ):
-        """
-        Update the score distribution for the top 25% frames and their neighbors.
-
-        Args:
-            frame_confidences (List[float]): Confidence scores for frames.
-            sampled_frame_indices (List[int]): Corresponding frame indices.
-            window_size (int): Number of neighboring frames to update.
-        """
         top_25_threshold = np.percentile(frame_confidences, 75)
         top_25_indices = [
             frame_idx for frame_idx, confidence in zip(sampled_frame_indices, frame_confidences)
@@ -249,17 +199,6 @@ class TStarSearcher:
         score_distribution: np.ndarray,
         video_length: int
     ) -> np.ndarray:
-        """
-        Generate a probability distribution over frames using spline interpolation.
-
-        Args:
-            non_visiting_frames (np.ndarray): Array indicating unvisited frames.
-            score_distribution (np.ndarray): Current score distribution.
-            video_length (int): Total number of frames.
-
-        Returns:
-            np.ndarray: Normalized probability distribution.
-        """
         visited_indices = np.array([idx for idx, visited in enumerate(non_visiting_frames) if visited == 0])
         observed_scores = np.array([score_distribution[idx] for idx in visited_indices])
         if len(visited_indices) == 0:
@@ -269,7 +208,6 @@ class TStarSearcher:
         all_frames = np.arange(video_length)
         spline_scores = spline(all_frames)
 
-        # Apply a sigmoid function to smooth the scores
         sigmoid = lambda x: 1 / (1 + np.exp(-x))
         adjusted_scores = np.maximum(1 / video_length, spline_scores)
         p_distribution = sigmoid(adjusted_scores)
@@ -282,20 +220,6 @@ class TStarSearcher:
         confidence_maps: np.ndarray,
         detected_objects_maps: List[List[List[str]]]
     ) -> Tuple[List[float], List[List[str]]]:
-        """
-        Update frame distribution based on detection results.
-
-        Args:
-            sampled_frame_indices (List[int]): Indices of sampled frames.
-            confidence_maps (np.ndarray): Confidence maps from detection.
-            detected_objects_maps (List[List[List[str]]]): Detected objects per grid cell.
-
-        Returns:
-            Tuple containing:
-                - List of frame confidences.
-                - List of detected objects for each frame.
-        """
-        # Assuming one grid image is used
         confidence_map = confidence_maps[0]
         detected_objects_map = detected_objects_maps[0]
         grid_rows, grid_cols = self.image_grid_shape
@@ -308,7 +232,6 @@ class TStarSearcher:
             frame_confidences.append(confidence_map[row, col])
             frame_detected_objects.append(detected_objects_map[idx])
 
-        # Mark frames as visited and update scores
         for frame_idx, confidence in zip(sampled_frame_indices, frame_confidences):
             self.non_visiting_frames[frame_idx] = 0
             self.score_distribution[frame_idx] = confidence
@@ -325,22 +248,11 @@ class TStarSearcher:
 
     # --- Sampling Methods ---
     def sample_frames(self, num_samples: int) -> Tuple[List[int], List[np.ndarray]]:
-        """
-        Sample frames based on the current probability distribution.
-
-        Args:
-            num_samples (int): Number of frames to sample.
-
-        Returns:
-            Tuple containing:
-                - List of sampled frame "seconds" (indices in the sampling rate).
-                - List of resized frame images.
-        """
         if num_samples > self.total_frame_num:
             num_samples = self.total_frame_num
 
         if not self.Score_history:
-            interval = self.total_frame_num // num_samples
+            interval = max(1, self.total_frame_num // num_samples)
             sampled_frame_secs = np.arange(0, self.total_frame_num, interval)[:num_samples]
             if len(sampled_frame_secs) < num_samples:
                 sampled_frame_secs = np.append(sampled_frame_secs, self.total_frame_num - 1)
@@ -352,15 +264,21 @@ class TStarSearcher:
             if _P.sum() == 0 or np.count_nonzero(_P) < num_samples:
                 print(f"Warning: Not enough non-zero entries, adjusting probability distribution.")
                 _P = (self.P + num_samples / self.total_frame_num)
-            _P /= _P.sum()
+            _P = self.safe_normalize(_P)
+            replace_flag = False if num_samples <= np.count_nonzero(_P) else True
             sampled_frame_secs = np.random.choice(
                 self.total_frame_num,
                 size=num_samples,
-                replace=False,
+                replace=replace_flag,
                 p=_P
             )
 
-        sampled_frame_indices = [int(sec * self.raw_fps / self.fps) for sec in sampled_frame_secs]
+        # Map sampled indices to frame indices in the original video
+        cap = cv2.VideoCapture(self.video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        sampled_frame_indices = [
+            min(int(sec / self.total_frame_num * total_frames), total_frames - 1) for sec in sampled_frame_secs
+        ]
         indices, frames = self.read_frame_batch(self.video_path, sampled_frame_indices)
         resized_frames = [cv2.resize(frame, (200 * 4, 95 * 4)) for frame in frames]
         return sampled_frame_secs.tolist(), resized_frames
@@ -368,19 +286,20 @@ class TStarSearcher:
     def pop_frames(self, 
                     video_path: str,
                     num_samples: int):
-        # Normalize the score distribution to obtain probabilities.
-        _P = self.score_distribution / self.score_distribution.sum()
-        
-        # Sample frame seconds directly using the probability distribution.
+        # _P = self.score_distribution / self.score_distribution.sum()
+        _P = self.safe_normalize(self.score_distribution)
+        num_samples = min(num_samples, self.total_frame_num)
         sampled_frame_secs = np.random.choice(self.total_frame_num, size=num_samples, replace=False, p=_P)
         sampled_frame_secs.sort()
-        time_stamps_secs = [sec / self.fps for sec in sampled_frame_secs]
-        # Convert the sampled seconds to raw frame indices.
-        frame_indices_in_video = [sec * self.raw_fps / self.fps for sec in time_stamps_secs]
-        
-        # Read the frames from the video.
+        # Map sampled indices to frame indices in the original video
+        cap = cv2.VideoCapture(video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_indices_in_video = [
+            min(int(sec / self.total_frame_num * total_frames), total_frames - 1) for sec in sampled_frame_secs
+        ]
         indices, frames = self.read_frame_batch(video_path, frame_indices_in_video)
-        return frames, time_stamps_secs
+        return frames, [idx / self.fps for idx in sampled_frame_secs]
+
     # --- Verification Methods ---
     def verify_and_remove_target(
         self,
@@ -388,20 +307,11 @@ class TStarSearcher:
         detected_objects: List[str],
         confidence_threshold: float,
     ) -> bool:
-        """
-        Verify detection of a target in a frame and remove it from remaining targets if confirmed.
-
-        Args:
-            frame_sec (int): Frame timestamp (in sampled seconds).
-            detected_objects (List[str]): Detected objects in the frame.
-            confidence_threshold (float): Threshold for confirmation.
-
-        Returns:
-            bool: True if a target is found and removed, else False.
-        """
         for target in list(self.remaining_targets):
             if target in detected_objects:
-                frame_idx = int(frame_sec * self.raw_fps / self.fps)
+                cap = cv2.VideoCapture(self.video_path)
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                frame_idx = min(int(frame_sec / self.total_frame_num * total_frames), total_frames - 1)
                 _, frame = self.read_frame_batch(self.video_path, [frame_idx])
                 resized_frame = cv2.resize(frame[0], (200 * 3, 95 * 3))
                 conf_map, det_obj_map = self.score_image_grids([resized_frame], (1, 1))
@@ -409,50 +319,14 @@ class TStarSearcher:
                 single_detected_objects = det_obj_map[0][0]
                 self.score_distribution[frame_sec] = single_confidence
 
-                self.image_grid_iters.append([resized_frame])
-                self.detect_annotot_iters.append(self.heuristic.bbox_visualization(
-                    images=[resized_frame],
-                    detections_inbatch=self.heuristic.detections_inbatch
-                ))
-                self.detect_bbox_iters.append(self.heuristic.detections_inbatch)
-
                 if target in single_detected_objects and single_confidence > confidence_threshold:
                     self.remaining_targets.remove(target)
                     print(f"Found target '{target}' in frame {frame_idx}, score {single_confidence:.2f}")
                     return True
         return False
 
-    # --- Visualization Methods ---
-    def plot_score_distribution(self, save_path: Optional[str] = None):
-        """
-        Plot the score distribution over time.
-
-        Args:
-            save_path (Optional[str]): Path to save the plot image.
-        """
-        time_axis = np.linspace(0, self.duration, len(self.score_distribution))
-        plt.figure(figsize=(12, 6))
-        plt.plot(time_axis, self.score_distribution, label="Score Distribution")
-        plt.xlabel("Time (seconds)")
-        plt.ylabel("Score")
-        plt.title("Score Distribution Over Time")
-        plt.grid(True)
-        plt.legend()
-        if save_path:
-            plt.savefig(save_path, format='png', dpi=300)
-            print(f"Plot saved to {save_path}")
-        plt.show()
-
     # --- Main Search Logic ---
     def search(self) -> Tuple[List[np.ndarray], List[float]]:
-        """
-        Perform keyframe search using object detection and dynamic sampling.
-
-        Returns:
-            Tuple containing:
-                - List of keyframe images.
-                - List of corresponding timestamps.
-        """
         K = self.search_nframes
         video_length = int(self.total_frame_num)
         progress_bar = tqdm(total=video_length, desc="Searching Iterations", unit="iter", dynamic_ncols=True)
@@ -462,20 +336,12 @@ class TStarSearcher:
             num_frames_in_grid = grid_rows * grid_cols
             sampled_frame_secs, frames = self.sample_frames(num_frames_in_grid)
             self.search_budget -= num_frames_in_grid
-
             grid_image = self.create_image_grid(frames, grid_rows, grid_cols)
             confidence_maps, detected_objects_maps = self.score_image_grids(
                 images=[grid_image],
                 image_grids=self.image_grid_shape
             )
-            # # Append grid and detection visualization for history
             self.image_grid_iters.append([grid_image])
-            self.detect_annotot_iters.append(self.heuristic.bbox_visualization(
-                images=[grid_image],
-                detections_inbatch=self.heuristic.detections_inbatch
-            ))
-            self.detect_bbox_iters.append(self.heuristic.detections_inbatch)
-
             frame_confidences, frame_detected_objects = self.update_frame_distribution(
                 sampled_frame_indices=sampled_frame_secs,
                 confidence_maps=confidence_maps,
@@ -493,14 +359,24 @@ class TStarSearcher:
         k_frames, time_stamps = self.pop_frames(video_path=self.video_path, num_samples=self.search_nframes)
         return k_frames, time_stamps
 
+    def safe_normalize(self, arr):
+        arr = np.nan_to_num(arr, nan=0.0)
+        arr[arr < 0] = 0.0
+        total = arr.sum()
+        if total == 0:
+            arr = np.ones_like(arr) / len(arr)
+        else:
+            arr = arr / total
+        # Lại chuẩn hóa một lần nữa cho chắc chắn
+        arr = np.nan_to_num(arr, nan=0.0)
+        arr[arr < 0] = 0.0
+        if arr.sum() == 0:
+            arr = np.ones_like(arr) / len(arr)
+        else:
+            arr = arr / arr.sum()
+        return arr
+    
     def search_with_visualization(self) -> Tuple[List[np.ndarray], List[float]]:
-        """
-        Perform keyframe search and maintain visual history.
-
-        Returns:
-            Tuple containing keyframe images and their timestamps.
-        """
-
         K = self.search_nframes
         video_length = int(self.total_frame_num)
         progress_bar = tqdm(total=video_length, desc="Searching Iterations", unit="iter", dynamic_ncols=True)
@@ -516,13 +392,6 @@ class TStarSearcher:
                 images=[grid_image],
                 image_grids=self.image_grid_shape
             )
-            self.image_grid_iters.append([grid_image])
-            self.detect_annotot_iters.append(self.heuristic.bbox_visualization(
-                images=[grid_image],
-                detections_inbatch=self.heuristic.detections_inbatch
-            ))
-            self.detect_bbox_iters.append(self.heuristic.detections_inbatch)
-
             frame_confidences, frame_detected_objects = self.update_frame_distribution(
                 sampled_frame_indices=sampled_frame_secs,
                 confidence_maps=confidence_maps,
@@ -543,6 +412,18 @@ class TStarSearcher:
 # Example usage
 if __name__ == "__main__":
     video_path = "./38737402-19bd-4689-9e74-3af391b15feb.mp4"
-    query = "what is the color of the couch?"
     target_objects = ["couch"]
     cue_objects = ["TV", "chair"]
+    model = YOLO("yolov8l-worldv2.pt")  # Change to your weights/model
+
+    searcher = TStarSearcher(
+        video_path=video_path,
+        object_detector=model,
+        target_objects=target_objects,
+        cue_objects=cue_objects,
+        search_nframes=8,
+        image_grid_shape=(8, 8),  # Will auto-reduce if video is too short
+    )
+    frames, times = searcher.search()
+    print("Keyframes:", len(frames))
+    print("Timestamps:", times)
