@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from config.settings import CORS_ORIGINS
-from routers import search
+from routers import search, query_process
 
 app = FastAPI(
     title="Embeddings API",
@@ -32,7 +32,7 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Include routers
-app.include_router(search.router)
+app.include_router(search.router, query_process.router)
 
 # Health check endpoint
 @app.get("/health")
