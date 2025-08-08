@@ -5,6 +5,7 @@ from models.schemas import Query
 from services.clip_service import CLIPService
 from services.milvus_service import MilvusService
 from services.polar_service import PolarService
+from services.paraphrase_service import ParaphraseService
 import zlib
 import time
 import asyncio
@@ -25,42 +26,91 @@ class RedisService:
             )  # decode=False for binary (compressed)
         except Exception as e:
             raise ConnectionError(f"Failed to connect to Redis: {str(e)}")
-        
-    def make_cache_key(self, queries: List[Query]) -> str:
+    
+    def make_tmp_query_text_key_for_paraphrase(self, query_text: str):
+        # Serialize và hash query
+        """ QUERY PROCESS MODULE: sử dụng để lưu cache cho query.text cần paraphrase"""
+        query_hash = hashlib.sha1(query_text.encode("utf-8")).hexdigest()
+        return f"query_text_cache:{query_hash}"
+    
+    async def get_query_text_paraphrase_cached_redis(
+        self,
+        query_text: str,
+        paraphrase_service: ParaphraseService,
+        ttl_seconds: int = 90
+    ):
         """
-        Generate a stable and JSON-safe cache key.
+        QUERY PROCESS MODULE: sử dụng để lưu cache cho query.text cần paraphrase
+        - Check cache theo key hash từ query_text.
+        - Nếu có -> trả về JSON giải mã (list[str]).
+        - Nếu miss -> gọi model paraphrase (không block event loop bằng to_thread/async method),
+                      lưu lại Redis (JSON bytes), trả về kết quả.
         """
-        return json.dumps([json.loads(q.json()) for q in queries], sort_keys=True)
+        key = self.make_tmp_query_text_key_for_paraphrase(query_text=query_text)
 
-    def make_query_cache_key(self, query: Query) -> str:
-        """
-        Chuẩn hóa cache key cho từng query (sort keys, exclude origin, sort obj nếu là list).
-        """
-        data = query.dict()
-        s = json.dumps(data, sort_keys=True, separators=(',', ':'))
-        # Hash để key ngắn gọn
-        return "q:" + hashlib.sha1(s.encode('utf-8')).hexdigest()
+        # GET cache
+        cached = await asyncio.to_thread(self.redis_client.get, key)
+        if cached:
+            try:
+                return json.loads(cached.decode("utf-8"))  # list[str]
+            except Exception as e:
+                # Cache hỏng -> xóa để tính lại
+                await asyncio.to_thread(self.redis_client.delete, key)
 
-    def serialize_result(self, obj: any) -> bytes:
-        return zlib.compress(json.dumps(obj).encode("utf-8"))
+        # MISS cache -> chạy model
+        try:
+            # Nếu bạn đã có paraphrase_batch_async thì có thể:
+            # result = (await paraphrase_service.paraphrase_batch_async([query_text]))[0]
+            # Ở đây dùng paraphrase() và đẩy vào thread để không block:
+            result = await asyncio.to_thread(paraphrase_service.paraphrase, query_text)  # list[str]
+        except Exception as e:
+            # Không lưu cache khi lỗi
+            raise e
 
-    def deserialize_result(self, data: bytes) -> any:
-        return json.loads(zlib.decompress(data).decode("utf-8"))
+        # Lưu lại (JSON bytes)
+        try:
+            payload = json.dumps(result).encode("utf-8")
+            await asyncio.to_thread(self.redis_client.setex, key, ttl_seconds, payload)
+        except Exception as e:
+            # Không fail toàn hàm nếu Redis set lỗi
+            pass
+
+        return result
 
     def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal"):
         # Serialize và hash query
+        """ SEARCH ROUTER PANIGTION: sử dụng để lưu cache cho trạng thái queries Ở MODE SEARCH NÀO cho một ANSWERS đầy đủ TOP_K: panigtion"""
         queries_serialized = json.dumps([json.loads(q.json()) for q in queries], sort_keys=True)
         query_hash = hashlib.sha1(queries_serialized.encode("utf-8")).hexdigest()
         return f"search_cache:{user_id}:{mode}:{query_hash}"
-
+    
     async def save_tmp_search_results_to_cache(self, redis_key, results, ttl_seconds=300):
+        """ SEARCH ROUTER PANIGTION: sử dụng để lưu cache cho trạng thái queries results Ở MODE SEARCH NÀO cho một ANSWERS đầy đủ TOP_K: panigtion"""
         await asyncio.to_thread(
             self.redis_client.setex,
             redis_key,
             ttl_seconds,
             pickle.dumps(results)
         )
+    
+    def make_query_cache_key(self, query: Query) -> str:
+        """
+        SEARCH MODULE, SỬ DỤNG CHO HÀM GET_ANSWER*: 
+        Chuẩn hóa cache key cho từng query (sort keys, exclude origin, sort obj nếu là list).
+        """
+        data = query.dict()
+        s = json.dumps(data, sort_keys=True, separators=(',', ':'))
+        # Hash để key ngắn gọn
+        return "q:" + hashlib.sha1(s.encode('utf-8')).hexdigest()
+    
+    def serialize_result(self, obj: any) -> bytes:
+        """ SEARCH MODULE, SỬ DỤNG CHO HÀM GET_ANSWER*: sử dụng cho cache KIỂU COMPRESS các kết quả của search """
+        return zlib.compress(json.dumps(obj).encode("utf-8"))
 
+    def deserialize_result(self, data: bytes) -> any:
+        """ SEARCH MODULE, SỬ DỤNG CHO HÀM GET_ANSWER*: sử dụng cho decode cache KIỂU COMPRESS các kết quả của search """
+        return json.loads(zlib.decompress(data).decode("utf-8"))
+        
     async def get_all_answers_cached_redis(
         self,
         queries: List[Query],
@@ -70,6 +120,7 @@ class RedisService:
         ttl_seconds: int = 3600,
         max_workers: int = 8,
     ):
+        """SEARCH ROUTER: SỬ DỤNG EMBEDDING VÀ SEARCH SERVICE ĐỂ RETURN ANSWERS TRƯỚC KHI RERANKING"""
         keys = [self.make_query_cache_key(q) for q in queries]
 
         # Redis mget, trong asyncio nên bọc bằng asyncio.to_thread
@@ -156,6 +207,7 @@ class RedisService:
         ttl_seconds: int = 3600,
     ):
         """
+        SEARCH ROUTER: SỬ DỤNG EMBEDDING VÀ SEARCH SERVICE ĐỂ RETURN ANSWER CỦA MỘT STAGE
         Trả về kết quả search cho một query, sử dụng Redis cache. Nếu chưa có trong cache thì search, rồi lưu lại vào Redis.
         """
         key = self.make_query_cache_key(query)

@@ -2,6 +2,7 @@ from services.clip_service import CLIPService
 from services.milvus_service import MilvusService
 from services.redis_service import RedisService
 from services.polar_service import PolarService
+from services.paraphrase_service import ParaphraseService
 
 import threading
 
@@ -11,6 +12,7 @@ class ServiceManager:
         self.milvus_service = None
         self.redis_service = None
         self.polar_service = None
+        self.paraphrase_service = None
         self.lock = threading.Lock()  # Lock to handle concurrent initialization
 
     def get_clip_service(self):
@@ -40,6 +42,13 @@ class ServiceManager:
                 if self.polar_service is None:
                     self.polar_service = PolarService()
         return self.polar_service
+    
+    def get_paraphrase_service(self):
+        if self.paraphrase_service is None:
+            with self.lock:
+                if self.paraphrase_service is None:
+                    self.paraphrase_service = ParaphraseService()
+        return self.paraphrase_service
 
 # Initialize service manager globally
 service_manager = ServiceManager()
@@ -56,3 +65,6 @@ def get_redis_service():
 
 def get_polar_service():
     return service_manager.get_polar_service()
+
+def get_paraphrase_service():
+    return service_manager.get_paraphrase_service()

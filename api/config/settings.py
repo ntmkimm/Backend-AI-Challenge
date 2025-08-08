@@ -13,17 +13,19 @@ MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
 
 # NOTE: CHÚ Ý EMBEDDING
-COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
-CLIP_MODEL = "metaclip"
-ANNS_FIELD_MILVUS = 'metaclip_embedding'
+# COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
+# CLIP_MODEL = "metaclip"
+# ANNS_FIELD_MILVUS = 'metaclip_embedding'
 
-# COLLECTION_NAME = "AIC25_fullbatch1"
-# CLIP_MODEL = "openclip"
-# ANNS_FIELD_MILVUS = 'clip_embedding'
+COLLECTION_NAME = "AIC25_fullbatch1"
+CLIP_MODEL = "openclip"
+ANNS_FIELD_MILVUS = 'clip_embedding'
 
 DEVICE = "cuda"  # Will be overridden based on availability
 
 OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1/objects.parquet"
+
+PARAPHRASE_MODEL = "humarin/chatgpt_paraphraser_on_T5_base"
 
 # Redis Settings
 REDIS_HOST = "redis-server"
