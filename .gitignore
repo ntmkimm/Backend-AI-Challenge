@@ -237,3 +237,5 @@ siglip/
 
 api_for_test/
 scene_understanding/agent/api_key.txt
+scene_understanding/agent/output/
+*.pt
