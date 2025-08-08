@@ -179,7 +179,7 @@ cython_debug/
 # Abstra is an AI-powered process automation framework.
 # Ignore directories containing user credentials, local state, and settings.
 # Learn more at https://abstra.io/docs
-.abstra/
+*.abstra/
 
 # Visual Studio Code
 #  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
@@ -189,10 +189,10 @@ cython_debug/
 # .vscode/
 
 # Ruff stuff:
-.ruff_cache/
+*.ruff_cache/
 
 # PyPI configuration file
-.pypirc
+*.pypirc
 
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
@@ -207,18 +207,18 @@ marimo/_lsp/
 __marimo__/
 
 # Sources 
-.json
-.webp
-.mp4
-.png
+*.json
+*.webp
+*.mp4
+*.png
 
-.pth 
-.pt 
+*.pth 
+*.pt 
 
 object_detector/Co-DETR/
 
-.bak
-.ckpt
+*.bak
+*.ckpt
 
 ocr/Parseq_Vietnamese/new-parseq.ckpt
 ocr/Parseq_Vietnamese/new-parseq.bak
