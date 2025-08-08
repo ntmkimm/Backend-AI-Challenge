@@ -32,7 +32,8 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Include routers
-app.include_router(search.router, query_process.router)
+app.include_router(search.router)
+app.include_router(query_process.router)
 
 # Health check endpoint
 @app.get("/health")
