@@ -283,8 +283,8 @@ if __name__ == "__main__":
     input_folder = '/mlcv2/Datasets/HCMAI24/updated/videos/batch1'
     output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_dense'
     ignore_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_should_ignore'
-    if os.path.exists(output_base_folder):
-        shutil.rmtree(output_base_folder)
+    # if os.path.exists(output_base_folder):
+    #     shutil.rmtree(output_base_folder)
     video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
 
     num_gpus = torch.cuda.device_count()

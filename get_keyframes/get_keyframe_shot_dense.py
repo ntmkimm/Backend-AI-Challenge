@@ -312,8 +312,8 @@ if __name__ == "__main__":
     input_folder = '/mlcv2/Datasets/HCMAI24/updated/videos/batch1'
     shot_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/shot'
     output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_shot_dense'
-    if os.path.exists(output_base_folder):
-        shutil.rmtree(output_base_folder)
+    # if os.path.exists(output_base_folder):
+    #     shutil.rmtree(output_base_folder)
     ignore_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_should_ignore'
 
     video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
