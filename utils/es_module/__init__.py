@@ -2,7 +2,7 @@
 Elasticsearch module for OCR search functionality
 """
 
-from typing import List
+from typing import List, Dict, Optional
 from .services.es_service2 import Service
 
 # Create singleton service instance
@@ -58,6 +58,10 @@ def search_by_ocr_asr(query: str, size: int = 10) -> List[str]:
     return service.search(query, size, fields=['ocr_text', 'asr_text'])
 
 import asyncio
+
+def get_text_by_frame(video_id: str, frame_id: str)-> Optional[Dict[str, str]]:
+    service = get_service()
+    return service.get_text_by_frame(video_id=video_id, frame_id=frame_id)
 
 async def async_search_by_ocr(query: str, size: int = 10):
     return await asyncio.to_thread(search_by_ocr, query, size)

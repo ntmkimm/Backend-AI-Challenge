@@ -317,9 +317,11 @@ class TStarUniversalGrounder:
         # system_prompt += f"Options: {options}\n"
         system_prompt += (
             "\nWhen answering this question about the video:\n"
-            "1. Identify key objects that can locate the answer (list key objects, separated by commas).\n"
-            "2. Identify cue objects that might be near the key objects and appear in the scenes (list cue objects, separated by commas).\n\n"
-            "Provide your answer in two lines, listing the key objects and cue objects separated by commas."
+            # "1. Identify key objects that can locate the answer (list key objects, separated by commas).\n"
+            "1. Identify only one key objects that can locate the answer.\n Example Answer: key objects: car"
+            # "2. Identify cue objects that might be near the key objects and appear in the scenes (list cue objects, separated by commas).\n\n"
+            # "Provide your answer in two lines, listing the key objects and cue objects separated by commas."
+            # "Provide your answer in one lines, listing the key objects separated by commas, with their importance sorted from high to low."
         )
         response = self.VLM_model_interface.inference_with_frames(
             query=system_prompt,
@@ -328,11 +330,12 @@ class TStarUniversalGrounder:
             max_tokens=max_tokens,
         )
         lines = [line.strip() for line in response.split("\n") if line.strip()]
-        if len(lines) != 2:
+        if len(lines) != 1:
             raise ValueError(f"Unexpected response format --> {response}")
 
         target_objects = [self.check_objects_str(obj) for obj in lines[0].split(",") if obj.strip()]
-        cue_objects = [self.check_objects_str(obj) for obj in lines[1].split(",") if obj.strip()]
+        # cue_objects = [self.check_objects_str(obj) for obj in lines[1].split(",") if obj.strip()]
+        cue_objects = []
         return target_objects, cue_objects
 
     def check_objects_str(self, obj: str) -> str:
@@ -347,7 +350,7 @@ class TStarUniversalGrounder:
 
         # Remove known prefixes (with optional whitespace)
         obj = re.sub(r"^(key objects|cue objects)?[:\-]?\s*", "", obj)
-        obj = obj.replace("key objects: ", "").replace("cue objects: ", "").replace(": ", "")
+        obj = obj.replace("key objects: ", "").replace(": ", "")
         obj = re.sub(r"^[0-9]+\.\s*", "", obj)  # e.g., "1. "
         
         # Remove punctuation like periods, colons etc.

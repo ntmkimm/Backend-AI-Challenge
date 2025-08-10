@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from collections import defaultdict
 import torch
-import heapq
 
-from models.schemas import Query, ResultItem, OCRSearchRequest, NearbyFramesRequest, ImageSearchRequest, ImageSearchResult
+from typing import List, Dict, Optional
+from models.schemas import Query, ResultItem, InformationOfFrame
 from services.clip_service import CLIPService
 from services.milvus_service import MilvusService
 from services.redis_service import RedisService
@@ -12,14 +12,49 @@ from services.polar_service import PolarService
 from config.settings import MAX_FRAME_GAP, MEDIA_SERVER_URL, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES
 from dependencies.services import get_clip_service, get_milvus_service, get_polar_service, get_redis_service
 from core.utils import get_valid_queries
+from utils.es_module import get_text_by_frame
 from collections import defaultdict
 import time
-import concurrent.futures
 import numpy as np
 import pickle
 import asyncio
 
-router = APIRouter(prefix="/embeddings")
+router = APIRouter(prefix="/embeddings") 
+
+@router.post("/information", response_model=Optional[InformationOfFrame])
+async def get_information(
+    video_id: str, # L01_V001
+    frame_id: str, # 10
+    polar_service: PolarService = Depends(get_polar_service),
+):
+    try:
+        frame_id = str(frame_id)
+        es_data = await asyncio.to_thread(
+            get_text_by_frame, video_id=video_id, frame_id=frame_id
+        )
+
+        pl_data = await asyncio.to_thread(
+            polar_service.get_object_by_frame, video_id, frame_id
+        )
+
+        objects_str = ""
+        if pl_data:
+            objects_str = ", ".join(
+                f"{k}={v}" for k, v in pl_data.items()
+                if isinstance(v, (int, float)) and v > 0
+            )
+
+        if not es_data and not objects_str:
+            return None
+
+        return InformationOfFrame(
+            ocr_text=es_data.get("ocr_text", "") if es_data else "",
+            asr_text=es_data.get("asr_text", "") if es_data else "",
+            objects=objects_str
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/stage", response_model=List[ResultItem])
 async def get_stage(

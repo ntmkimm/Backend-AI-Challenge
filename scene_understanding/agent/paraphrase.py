@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 torch.cuda.empty_cache()
 
-device = "cuda:6"
+device = "cuda:7"
 
 print("Loading model...")
 tokenizer = AutoTokenizer.from_pretrained("humarin/chatgpt_paraphraser_on_T5_base")

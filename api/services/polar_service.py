@@ -14,6 +14,31 @@ class PolarService:
             return pl.read_parquet(OBJECT_DATABASE)
         except Exception as e:
             raise ConnectionError(f"Failed to load database: {str(e)}")
+        
+    def get_object_by_frame(self, video_id: str, frame_id: str) -> dict:
+        """
+        Get all object information for a specific video_id and frame_id,
+        excluding the 'filepath' column.
+
+        Returns:
+            dict with column:value pairs or None if not found
+        """
+        try:
+            df = pl.read_parquet(OBJECT_DATABASE)
+            result = (
+                df.filter(
+                    (pl.col("video_id") == video_id) &
+                    (pl.col("frame_id") == frame_id)
+                )
+                .select(pl.all().exclude("filepath"))
+            )
+
+            if result.is_empty():
+                return None
+
+            return result.to_dicts()[0]  # Return first matching row as dict
+        except Exception as e:
+            raise RuntimeError(f"Error getting object data: {str(e)}")
 
     async def search_object(self, objects: List[str]):
         query_str = objects[0]

@@ -23,7 +23,7 @@ ANNS_FIELD_MILVUS = 'clip_embedding'
 
 DEVICE = "cuda"  # Will be overridden based on availability
 
-OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1/objects.parquet"
+OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1/objects_codetr.parquet"
 
 PARAPHRASE_MODEL = "humarin/chatgpt_paraphraser_on_T5_base"
 

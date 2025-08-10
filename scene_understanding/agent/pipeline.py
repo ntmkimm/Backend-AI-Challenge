@@ -7,6 +7,7 @@ from typing import List, Tuple
 from grounder import TStarUniversalGrounder
 from heuristic import TStarSearcher
 from ultralytics import YOLO
+import shutil
 
 # Configure logging
 logging.basicConfig(
@@ -131,6 +132,9 @@ class TStarFramework:
         Save the relevant frames as image files.
         """
         frame_dir = os.path.join(self.output_dir, "frames")
+        if os.path.exists(frame_dir):
+            shutil.rmtree(frame_dir)
+
         os.makedirs(frame_dir, exist_ok=True)
 
         for idx, (frame, timestamp) in enumerate(zip(frames, timestamps)):
@@ -143,7 +147,7 @@ def run_tstar(
     question: str,
     grounder: str = "gpt-4o",
     object_detector_path: str = "yolov8l-worldv2.pt",
-    search_nframes: int = 8,
+    search_nframes: int = 16,
     grid_rows: int = 4,
     grid_cols: int = 4,
     confidence_threshold: float = 0.6,
@@ -175,6 +179,7 @@ if __name__ == "__main__":
     # Example call to run_tstar with the appropriate arguments.
     # video_path = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/video_shot/L01_V001_shots/L01_V001_shot_0221_022394-022509.mp4"
     video_path = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/scene_understanding/TStar/LVHaystackBench/playground/03e90bbc-7d6b-423c-84d9-b5be3eff11c5.mp4"
-    question =  "What is the color of the cabinet that appears more than two times in the video?"
+    # question =  "What is the color of the cabinet that appears more than two times in the video?"
     # question="there is a man hold cheese, how many part of cheese that he get?"
+    question = "does the woman wear rings? which finger that she wears?"
     run_tstar(video_path, question)

@@ -3,7 +3,7 @@ from pathlib import Path
 import polars as pl
 
 ROOT = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1/"
-JSON_ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/object_detector/json/full_batch1")
+JSON_ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/object_detector/json/full_batch1_codetr")
 # OUTPUT_CSV = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1/objects.csv"
 
 
@@ -22,7 +22,7 @@ for _vid in sorted(JSON_ROOT.iterdir()):
             path = ROOT + video_id + "/keyframes/keyframe_" + frame_id + ".webp"
             cnt = [0] * 80
             for obj in objs:
-                _class = obj["category_id"]
+                _class = obj["catergory_id"]
                 _score = obj["score"]
                 if (_score < 0.4): continue
                 cnt[_class] += 1
@@ -44,5 +44,5 @@ df = pl.DataFrame(data)
 
 print(df)
 
-df.write_parquet(ROOT + "objects.parquet")
+df.write_parquet(ROOT + "objects_codetr.parquet")
                 

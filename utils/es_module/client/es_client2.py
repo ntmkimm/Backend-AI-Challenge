@@ -49,7 +49,7 @@ class ElasticsearchClient:
         Process both OCR and ASR files and yield merged documents for indexing.
         Each frame gets one document, with both ocr_text and asr_text if available.
         """
-        ocr_file = video_dir / "ocr_parseq.json"
+        ocr_file = video_dir / "ocr_parseq_new.json"
         asr_file = video_dir / "asr.json"
         ocr_data, asr_data = {}, {}
 
@@ -261,3 +261,37 @@ class ElasticsearchClient:
 
         results.sort(key=lambda x: x.score, reverse=True)
         return results[:size]
+    
+    def get_text_by_frame(self, video_id: str, frame_id: str) -> Optional[Dict[str, str]]:
+        """
+        Retrieve OCR and ASR text for a specific video_id and frame_id.
+
+        Args:
+            video_id: The ID of the video
+            frame_id: The ID of the frame
+
+        Returns:
+            Dict with 'ocr_text' and 'asr_text', or None if not found
+        """
+        query = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"term": {"video_id": video_id}},
+                        {"term": {"frame_id": frame_id}}
+                    ]
+                }
+            },
+            "_source": ["ocr_text", "asr_text"]
+        }
+
+        res = self.es.search(index=self.config.INDEX_NAME, body=query)
+        hits = res.get("hits", {}).get("hits", [])
+
+        if hits:
+            source = hits[0].get("_source", {})
+            return {
+                "ocr_text": source.get("ocr_text", ""),
+                "asr_text": source.get("asr_text", "")
+            }
+        return None
