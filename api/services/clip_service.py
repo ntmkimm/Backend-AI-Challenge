@@ -50,7 +50,7 @@ class CLIPService:
         with torch.no_grad():
             tokens = self.tokenizer([text]).to(self.device)
             embedding = self.model.encode_text(tokens)
-            return F.normalize(embedding, p=2, dim=-1).cpu().tolist()
+            return F.normalize(embedding, p=2, dim=-1).squeeze(0).cpu().tolist()
         
     def encode_image(self, image: Image.Image):
         """

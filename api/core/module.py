@@ -11,12 +11,38 @@ import asyncio
 from typing import List
 import time
 
+async def search_by_text(
+    clip_service,                # CLIPService
+    milvus_service,              # MilvusService
+    text: str,
+):
+    if not text:
+        return None
+    embedding = await asyncio.to_thread(clip_service.encode_single_text, text)
+    results = await milvus_service.search_by_embedding(embedding)
+
+    return results
+
+
+async def search_by_image(
+    clip_service,                # CLIPService
+    milvus_service,              # MilvusService
+    image: Image.Image,          # already decoded PIL Image (RGB preferred)
+):
+
+    if image is None:
+        return None
+
+    embedding = await asyncio.to_thread(clip_service.encode_image, image)
+    results = await milvus_service.search_by_embedding(embedding)
+
+    return results
+
 async def search_one_query(
     clip_service: CLIPService,
     milvus_service: MilvusService,
     polar_service: PolarService,
-    q: Query, 
-    clip_embedding: List[float], 
+    q: Query
     ):
     start_time = time.time()
     buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None}
@@ -25,9 +51,8 @@ async def search_one_query(
     # Chuẩn bị các task async / blocking
     tasks = []
     
-    # Milvus text embedding search (async)
-    if q.text and clip_embedding:
-        tasks.append(milvus_service.search_by_embedding(clip_embedding))
+    if q.text:
+        tasks.append(search_by_text(clip_service, milvus_service, q.text))
     else:
         tasks.append(asyncio.sleep(0, result=None))
 
@@ -58,11 +83,7 @@ async def search_one_query(
             img = None
 
         if img is not None:
-            embedding = clip_service.encode_image(img)  # sync
-            if embedding and len(embedding) > 0:
-                tasks.append(milvus_service.search_by_embedding(embedding))
-            else:
-                tasks.append(asyncio.sleep(0, result=None))
+            tasks.append(search_by_image(clip_service, milvus_service, img))
         else:
             tasks.append(asyncio.sleep(0, result=None))
     else:

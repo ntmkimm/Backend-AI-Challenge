@@ -1,0 +1,9 @@
+[2025-08-02 08:25:51] [MAIN] [INFO] Starting embedding pipeline...
+[2025-08-02 08:25:51] [MAIN] [WARNING] ⚠️ Collection testti exists. Do you want to delete it [y/n]
+[2025-08-02 08:25:55] [MAIN] [INFO] Existing collection dropped.
+[2025-08-02 08:25:56] [MAIN] [INFO] Collection schema created and index built.
+[2025-08-02 08:25:56] [MAIN] [INFO] Collecting image paths...
+[2025-08-02 08:26:00] [MAIN] [INFO] Found 276186 images.
+[2025-08-02 08:26:01] [MAIN] [INFO] Using 1 GPUs.
+[2025-08-02 08:27:02] [MAIN] [INFO] Starting embedding pipeline...
+[2025-08-02 08:27:02] [MAIN] [WARNING] ⚠️ Collection testti exists. Do you want to delete it [y/n]

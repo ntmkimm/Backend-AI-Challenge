@@ -150,13 +150,6 @@ class RedisService:
                 queries[i].text if queries[i].text else ""
                 for i in uncached_indices
             ]
-            
-            if text_queries and any(x.strip() for x in text_queries):
-                t0 = time.time()
-                embeddings = clip_service.encode_text_batch(text_queries)
-                print("Time for embedding:", time.time() - t0)
-            else:
-                embeddings = [None] * len(uncached_indices)
 
             # Tạo task cho từng query miss cache
             tasks = [
@@ -164,8 +157,7 @@ class RedisService:
                     clip_service=clip_service,
                     milvus_service=milvus_service,
                     polar_service=polar_service,
-                    q=queries[i],
-                    clip_embedding=embeddings[j]
+                    q=queries[i]
                 ) for j, i in enumerate(uncached_indices)
             ]
             
@@ -218,21 +210,12 @@ class RedisService:
             except Exception as e:
                 print(f"[Redis Warning] Deserialize failed: {e}")
 
-        # Nếu miss cache hoặc lỗi giải nén: thực hiện search lại
-        # Chuẩn bị text embedding nếu có text
-        clip_embedding = None
-        if query.text and query.text.strip():
-            t0 = time.time()
-            clip_embedding = clip_service.encode_text_batch([query.text])[0]
-            print("Time for embedding one:", time.time() - t0)
-
         try:
             result = await search_one_query(
                 clip_service=clip_service,
                 milvus_service=milvus_service,
                 polar_service=polar_service,
                 q=query,
-                clip_embedding=clip_embedding
             )
         except Exception as e:
             print(f"[Search Error] Exception during search_one_query: {e}")
