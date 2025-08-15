@@ -32,7 +32,7 @@ REDIS_HOST = "redis-server"
 REDIS_PORT = 6379
 
 # Search Settings
-TOP_K = 500
+TOP_K = 1000
 MAX_FRAME_GAP = 750
 BATCH_SIZE = 128
 

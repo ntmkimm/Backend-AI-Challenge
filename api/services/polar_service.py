@@ -13,7 +13,8 @@ class PolarService:
         try:
             return pl.read_parquet(OBJECT_DATABASE)
         except Exception as e:
-            raise ConnectionError(f"Failed to load database: {str(e)}")
+            # raise ConnectionError(f"Failed to load database: {str(e)}")
+            return None
         
     def get_object_by_frame(self, video_id: str, frame_id: str) -> dict:
         """

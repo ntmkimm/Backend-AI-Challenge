@@ -11,6 +11,7 @@ from queue import Empty
 from tqdm import tqdm
 from PIL import Image
 import open_clip  # type: ignore
+from services.MetaCLIP.src.mini_clip.factory import create_model_and_transforms, get_tokenizer
 
 # -----------------------------
 # Global save lock for thread-safe writes
@@ -244,8 +245,9 @@ def process_all_videos_worker(video_queue, output_base_folder,
                               device_id, ignore_folder):
     device = torch.device(f"cuda:{device_id}")
     torch.cuda.set_device(device_id)
-    model, _, preprocess = open_clip.create_model_and_transforms(
-        'ViT-H-14-378-quickgelu', pretrained='dfn5b')
+    model, _, preprocess = create_model_and_transforms('ViT-H-14-quickgelu-worldwide@WorldWideCLIP', pretrained='metaclip2_worldwide')
+    # model, _, preprocess = open_clip.create_model_and_transforms(
+    #     'ViT-H-14-378-quickgelu', pretrained='dfn5b')
     model = model.to(device).eval()
 
     ignore_feats = load_ignore_features(ignore_folder, model, preprocess, device) if ignore_folder else None
@@ -281,7 +283,7 @@ if __name__ == "__main__":
     mp.set_start_method('spawn')
 
     input_folder = '/mlcv2/Datasets/HCMAI24/updated/videos/batch1'
-    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_dense'
+    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_dense_metaclip'
     ignore_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_should_ignore'
     # if os.path.exists(output_base_folder):
     #     shutil.rmtree(output_base_folder)

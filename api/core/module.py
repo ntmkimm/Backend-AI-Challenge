@@ -18,8 +18,13 @@ async def search_by_text(
 ):
     if not text:
         return None
+    t0 = time.time()
     embedding = await asyncio.to_thread(clip_service.encode_single_text, text)
+    t1 = time.time()
     results = await milvus_service.search_by_embedding(embedding)
+    t2 = time.time()
+    print("time embed: ", t1 - t0)
+    print("time search milvus: ", t2 - t1)
 
     return results
 
@@ -32,9 +37,13 @@ async def search_by_image(
 
     if image is None:
         return None
-
+    t0 = time.time()
     embedding = await asyncio.to_thread(clip_service.encode_image, image)
+    t1 = time.time()
     results = await milvus_service.search_by_embedding(embedding)
+    t2 = time.time()
+    print("time embed: ", t1 - t0)
+    print("time search milvus: ", t2 - t1)
 
     return results
 
@@ -151,5 +160,5 @@ async def search_one_query(
 
     combined_results = sorted(combined_results.values(), key=lambda x: x['score'], reverse=True)[:TOP_K]
     end_time = time.time()
-    print("Time for search: ", end_time - start_time)
+    print("Total time for search: ", end_time - start_time)
     return combined_results

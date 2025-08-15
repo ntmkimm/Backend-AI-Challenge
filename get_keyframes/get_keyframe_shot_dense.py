@@ -16,7 +16,7 @@ import shutil
 from services.MetaCLIP.src.mini_clip.factory import create_model_and_transforms, get_tokenizer
 
 
-MAX_FRAMES_PER_SHOT = 3
+MAX_FRAMES_PER_SHOT = 5
 # ---------------------
 # Utility functions
 # ---------------------
@@ -26,7 +26,7 @@ def read_shot_boundaries(scenes_file_path):
     with open(scenes_file_path, 'r') as f:
         for line in f:
             start_frame, end_frame = map(int, line.strip().split())
-            shots.append((start_frame, end_frame))
+            shots.append((start_frame + 5, end_frame))
     return shots
 
 
@@ -122,8 +122,8 @@ def process_video(video_path, scenes_file_path, output_folder, maps_folder,
 
     device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
     torch.cuda.set_device(device_id)
-    model, _, preprocess = open_clip.create_model_and_transforms('ViT-H-14-378-quickgelu', pretrained='dfn5b')
-    # model, _, preprocess = create_model_and_transforms('ViT-H-14-quickgelu-worldwide@WorldWideCLIP', pretrained='metaclip2_worldwide')
+    # model, _, preprocess = open_clip.create_model_and_transforms('ViT-H-14-378-quickgelu', pretrained='dfn5b')
+    model, _, preprocess = create_model_and_transforms('ViT-H-14-quickgelu-worldwide@WorldWideCLIP', pretrained='metaclip2_worldwide')
     model = model.to(device).eval()
 
     shot_boundaries = read_shot_boundaries(scenes_file_path)
@@ -135,7 +135,7 @@ def process_video(video_path, scenes_file_path, output_folder, maps_folder,
     map_file_path = os.path.join(maps_folder, f"{video_name}_map.csv")
 
     all_keyframes = []
-    SIM_SKIP_THRESHOLD = 0.77  # skip threshold
+    SIM_SKIP_THRESHOLD = 0.8  # skip threshold
 
     def filter_by_ignore(features_batch_normed):
         if ignore_feats is None or features_batch_normed.numel() == 0:
@@ -271,8 +271,8 @@ def process_all_videos_worker(video_queue, shot_folder, output_base_folder, clip
     device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
     torch.cuda.set_device(device_id)
     # temporary model to load ignore feats
-    model_tmp, _, preprocess_tmp = open_clip.create_model_and_transforms('ViT-H-14-378-quickgelu', pretrained='dfn5b')
-    # model_tmp, _, preprocess_tmp = create_model_and_transforms('ViT-H-14-quickgelu-worldwide@WorldWideCLIP', pretrained='metaclip2_worldwide')
+    # model_tmp, _, preprocess_tmp = open_clip.create_model_and_transforms('ViT-H-14-378-quickgelu', pretrained='dfn5b')
+    model_tmp, _, preprocess_tmp = create_model_and_transforms('ViT-H-14-quickgelu-worldwide@WorldWideCLIP', pretrained='metaclip2_worldwide')
     model_tmp = model_tmp.to(device).eval()
     ignore_feats = load_ignore_features(ignore_folder, model_tmp, preprocess_tmp, device, batch_size=64)
     del model_tmp
@@ -311,9 +311,9 @@ if __name__ == "__main__":
 
     input_folder = '/mlcv2/Datasets/HCMAI24/updated/videos/batch1'
     shot_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/shot'
-    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_shot_dense'
-    # if os.path.exists(output_base_folder):
-    #     shutil.rmtree(output_base_folder)
+    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_shot_dense_meta2'
+    if os.path.exists(output_base_folder):
+        shutil.rmtree(output_base_folder)
     ignore_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_should_ignore'
 
     video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
@@ -327,17 +327,27 @@ if __name__ == "__main__":
     # sample_rate = 25
     # skip_frames = 7
     
-    clip_threshold = 0.85
-    frame_distance_threshold = 25 * 12
-    proximity_threshold = 15
-    proximity_clip_threshold = 0.75
+    # clip_threshold = 0.85
+    # frame_distance_threshold = 25 * 12
+    # proximity_threshold = 15
+    # proximity_clip_threshold = 0.75
+    # batch_size = 8
+    # sample_rate = 25
+    # skip_frames = 5
+    
+    clip_threshold = 0.9
+    frame_distance_threshold = 25 * 22
+    proximity_threshold = 25 * 2
+    proximity_clip_threshold = 0.8
     batch_size = 8
     sample_rate = 25
     skip_frames = 5
 
+
+
     video_queue = mp.Queue()
     for vf in video_files:
-        # if 'L01_V026' not in vf: continue
+        if 'L01_V026' not in vf: continue
         video_queue.put(vf)
 
     processes = []

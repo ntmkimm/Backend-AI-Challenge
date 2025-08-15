@@ -12,6 +12,9 @@ from queue import Empty
 import threading
 import numpy as np
 from pathlib import Path
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 def read_shot_boundaries(scenes_file_path):
     """Reads the shot boundaries from a .scenes.txt file."""
@@ -165,71 +168,180 @@ def process_video(video_path, scenes_file_path, output_folder, maps_folder, clip
 
     return all_keyframes
 
-def process_all_videos_worker(video_queue, shot_folder, output_base_folder, clip_threshold, frame_distance_threshold, proximity_threshold, proximity_clip_threshold, batch_size, sample_rate, skip_frames, device_id):
-    while True:
+def extract_video_id_from_scenes_file(scenes_file_path):
+    """Extract video ID from scenes file name (e.g., L21_V001.scenes.txt -> L21_V001)"""
+    filename = os.path.basename(scenes_file_path)
+    # Remove .scenes.txt extension
+    if filename.endswith('.scenes.txt'):
+        return filename[:-11]
+    elif filename.endswith('.mp4.scenes.txt'):
+        return filename[:-15]
+    else:
+        return filename.split('.')[0]
+
+def get_video_path_from_id(video_id, input_folder):
+    """Find the corresponding video file for a given video ID"""
+    # Try different extensions
+    extensions = ['.mp4', '.avi', '.mov', '.mkv']
+    for ext in extensions:
+        video_path = os.path.join(input_folder, f"{video_id}{ext}")
+        if os.path.exists(video_path):
+            return video_path
+    return None
+
+def process_all_videos_worker(video_queue, shot_folder, input_folder, output_base_folder, 
+                             clip_threshold, frame_distance_threshold, proximity_threshold, 
+                             proximity_clip_threshold, batch_size, sample_rate, skip_frames, device_id, stop_event):
+    while not stop_event.is_set():
         try:
-            video_path = video_queue.get(timeout=3)
+            scenes_file_path = video_queue.get(timeout=1)
         except Empty:
+            continue  # Keep checking for new files instead of breaking
+
+        if scenes_file_path is None:  # Shutdown signal
             break
 
-        video_name = os.path.splitext(os.path.basename(video_path))[0]
-        scenes_file_path = os.path.join(shot_folder, f"{video_name}.mp4.scenes.txt")
+        video_id = extract_video_id_from_scenes_file(scenes_file_path)
+        video_path = get_video_path_from_id(video_id, input_folder)
 
-        if not os.path.exists(scenes_file_path):
-            print(f"[GPU {device_id}] Scenes file not found for {video_name}, skipping.")
+        if not video_path:
+            print(f"[GPU {device_id}] Video file not found for {video_id}, skipping.")
             continue
 
-        output_folder = os.path.join(output_base_folder, video_name)
+        if not os.path.exists(scenes_file_path):
+            print(f"[GPU {device_id}] Scenes file not found for {video_id}, skipping.")
+            continue
+
+        output_folder = os.path.join(output_base_folder, video_id)
         maps_folder = os.path.join(output_base_folder, "maps")
         os.makedirs(maps_folder, exist_ok=True)
 
-        print(f"[GPU {device_id}] Starting video: {video_name}")
+        print(f"[GPU {device_id}] Starting video: {video_id}")
         try:
             keyframes = process_video(video_path, scenes_file_path, output_folder, maps_folder,
                                       clip_threshold, frame_distance_threshold,
                                       proximity_threshold, proximity_clip_threshold,
                                       batch_size, sample_rate, skip_frames, device_id)
-            print(f"[GPU {device_id}] Finished video: {video_name}, keyframes: {len(keyframes)}")
+            print(f"[GPU {device_id}] Finished video: {video_id}, keyframes: {len(keyframes)}")
         except Exception as e:
-            print(f"[GPU {device_id}] Error processing {video_name}: {str(e)}")
+            print(f"[GPU {device_id}] Error processing {video_id}: {str(e)}")
+
+class ScenesFileHandler(FileSystemEventHandler):
+    def __init__(self, video_queue, processed_files, lock):
+        self.video_queue = video_queue
+        self.processed_files = processed_files
+        self.lock = lock
+
+    def on_created(self, event):
+        if not event.is_directory and event.src_path.endswith('.scenes.txt'):
+            # Wait a moment for the file to be fully written
+            time.sleep(1)
+            with self.lock:
+                if event.src_path not in self.processed_files:
+                    print(f"New scenes file detected: {event.src_path}")
+                    self.video_queue.put(event.src_path)
+                    self.processed_files[event.src_path] = True
+
+    def on_modified(self, event):
+        if not event.is_directory and event.src_path.endswith('.scenes.txt'):
+            # Wait a moment for the file to be fully written
+            time.sleep(1)
+            with self.lock:
+                if event.src_path not in self.processed_files:
+                    print(f"Scenes file modified: {event.src_path}")
+                    self.video_queue.put(event.src_path)
+                    self.processed_files[event.src_path] = True
+
+def start_file_watcher(shot_folder, video_queue, processed_files, lock):
+    """Start watching the shot folder for new .scenes.txt files"""
+    event_handler = ScenesFileHandler(video_queue, processed_files, lock)
+    observer = Observer()
+    observer.schedule(event_handler, shot_folder, recursive=False)
+    observer.start()
+    print(f"File watcher started for folder: {shot_folder}")
+    return observer
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
 
-    input_folder = '/mlcv2/Datasets/HCMAI24/updated/videos/batch1'
-    shot_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/shot'
-    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_shot'
-    video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
+    input_folder = '/mlcv2/Datasets/HCMAI25/batch1/video'
+    shot_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/shot_batch1'
+    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1'
 
     num_gpus = torch.cuda.device_count()
 
-    clip_threshold = 0.8
-    frame_distance_threshold = 3000
+    clip_threshold = 0.96
+    frame_distance_threshold = 75
     proximity_threshold = 15
-    proximity_clip_threshold = 0.6
+    proximity_clip_threshold = 0.80
     batch_size = 8
     sample_rate = 25
-    skip_frames = 7
+    skip_frames = 5
 
+    # Create shared queue, processed files set, and lock
     video_queue = mp.Queue()
-    for vf in video_files:
-        _vid_name = Path(vf).stem
-        if _vid_name < "L02_V024": 
-            print(_vid_name)
-            continue
-        video_queue.put(vf)
+    manager = mp.Manager()
+    processed_files = manager.dict()
+    files_lock = manager.Lock()
+    stop_event = manager.Event()
 
+    # First, process all existing .scenes.txt files
+    existing_scenes_files = sorted(glob.glob(os.path.join(shot_folder, '*.scenes.txt')))
+    print(f"Found {len(existing_scenes_files)} existing scenes files to process")
+    
+    with files_lock:
+        for scenes_file in existing_scenes_files:
+            video_queue.put(scenes_file)
+            processed_files[scenes_file] = True
+
+    # Start file watcher for new files
+    observer = start_file_watcher(shot_folder, video_queue, processed_files, files_lock)
+
+    # Start worker processes
     processes = []
     for device_id in range(num_gpus):
         p = mp.Process(target=process_all_videos_worker, args=(
-            video_queue, shot_folder, output_base_folder,
+            video_queue, shot_folder, input_folder, output_base_folder,
             clip_threshold, frame_distance_threshold,
             proximity_threshold, proximity_clip_threshold,
-            batch_size, sample_rate, skip_frames, device_id))
+            batch_size, sample_rate, skip_frames, device_id, stop_event))
         p.start()
         processes.append(p)
 
-    for p in processes:
-        p.join()
-
-    print("All videos processed.")
+    try:
+        print("Processing existing files and watching for new ones...")
+        print("Press Ctrl+C to stop the file watcher and exit")
+        
+        # Monitor progress
+        processed_count = 0
+        last_queue_size = video_queue.qsize()
+        
+        while True:
+            time.sleep(5)  # Check every 5 seconds
+            current_queue_size = video_queue.qsize()
+            
+            if current_queue_size != last_queue_size:
+                print(f"Queue size: {current_queue_size}, Total files tracked: {len(processed_files)}")
+                last_queue_size = current_queue_size
+                
+            # Check if any process is still alive
+            alive_processes = [p for p in processes if p.is_alive()]
+            if not alive_processes and video_queue.empty():
+                print("All workers finished and queue is empty.")
+                break
+            
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        stop_event.set()
+        observer.stop()
+        
+        # Send shutdown signals to workers
+        for _ in range(num_gpus):
+            video_queue.put(None)
+        
+        # Wait for all processes to finish
+        for p in processes:
+            p.join()
+        
+        observer.join()
+        print("All processes have been terminated.")

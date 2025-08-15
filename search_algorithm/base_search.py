@@ -10,11 +10,6 @@ TOP_K = 10
 host = "192.168.20.156"
 port = "19530"
 
-# ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
-# tox 4.27.0 requires chardet>=5.2, but you have chardet 3.0.4 which is incompatible.
-# Successfully installed chardet-3.0.4 googletrans-4.0.0rc1 h11-0.9.0 h2-3.2.0 hpack-3.0.0 hstspreload-2025.1.1 httpcore-0.9.1 httpx-0.13.3 hyperframe-5.2.0 idna-2.10 rfc3986-1.5.0
-    
-
 # === LOAD COLLECTION ===
 connections.connect(host=host, port=port)
 collection = Collection(name=COLLECTION_NAME)
