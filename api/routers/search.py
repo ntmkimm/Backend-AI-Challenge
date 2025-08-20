@@ -163,8 +163,8 @@ async def search_text(
             for curr_fids, curr_scores, curr_raw in tensor_stages[1:]:
                 if len(curr_fids) == 0:
                     continue
-                curr_video_ids = np.array([x[3] for x in curr_raw])
-                base_video_ids = np.array([x[3] for x in base_raw])
+                curr_video_ids = np.array([x[2] for x in curr_raw])
+                base_video_ids = np.array([x[2] for x in base_raw])
                 # Tạo mask so sánh video_id
                 video_mask = (curr_video_ids[:, None] == base_video_ids[None, :])
                 diff = curr_fids[:, None] - base_fids[None, :]
