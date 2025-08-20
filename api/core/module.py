@@ -110,7 +110,7 @@ async def search_one_query(
     # Chạy song song tất cả các task
     results = await asyncio.gather(*tasks)
 
-    buffer['beit_1'], buffer['openclip_1'], buffer['ocr'], buffer['asr'], buffer['obj'], buffer['image'] = results
+    buffer['beit_1'], buffer['openclip_1'], buffer['image'], buffer['ocr'], buffer['asr'], buffer['obj'] = results
 
     combined_results = defaultdict(lambda: {'score': 0.0, 'video_id': None, 'frame_id': None })
 
