@@ -2,9 +2,6 @@ import redis
 import json
 from typing import List
 from models.schemas import Query
-from services.clip_service import CLIPService
-from services.milvus_service import MilvusService
-from services.polar_service import PolarService
 from services.paraphrase_service import ParaphraseService
 import zlib
 import time
@@ -114,11 +111,7 @@ class RedisService:
     async def get_all_answers_cached_redis(
         self,
         queries: List[Query],
-        clip_service: CLIPService,
-        milvus_service: MilvusService,
-        polar_service: PolarService,
         ttl_seconds: int = 3600,
-        max_workers: int = 8,
     ):
         """SEARCH ROUTER: SỬ DỤNG EMBEDDING VÀ SEARCH SERVICE ĐỂ RETURN ANSWERS TRƯỚC KHI RERANKING"""
         keys = [self.make_query_cache_key(q) for q in queries]
@@ -154,9 +147,6 @@ class RedisService:
             # Tạo task cho từng query miss cache
             tasks = [
                 search_one_query(
-                    clip_service=clip_service,
-                    milvus_service=milvus_service,
-                    polar_service=polar_service,
                     q=queries[i]
                 ) for j, i in enumerate(uncached_indices)
             ]
@@ -193,9 +183,6 @@ class RedisService:
     async def get_one_answer_cached_redis(
         self,
         query: Query,
-        clip_service: CLIPService,
-        milvus_service: MilvusService,
-        polar_service: PolarService,
         ttl_seconds: int = 3600,
     ):
         """
@@ -212,9 +199,6 @@ class RedisService:
 
         try:
             result = await search_one_query(
-                clip_service=clip_service,
-                milvus_service=milvus_service,
-                polar_service=polar_service,
                 q=query,
             )
         except Exception as e:

@@ -1,18 +1,26 @@
 from services.clip_service import CLIPService
 from services.milvus_service import MilvusService
-from services.redis_service import RedisService
 from services.polar_service import PolarService
+from services.beit3_service import BEiT3Service
 from services.paraphrase_service import ParaphraseService
-
+from config.settings import OPENCLIP_BATCH1, BEIT3_BATCH1
 import threading
 
 class ServiceManager:
     def __init__(self):
         self.clip_service = None
-        self.milvus_service = None
         self.redis_service = None
         self.polar_service = None
         self.paraphrase_service = None
+        self.beit3_service = None
+        self.milvus_services = {
+            OPENCLIP_BATCH1: None,
+            BEIT3_BATCH1: None,
+        }
+        
+        self.milvus_beit3_batch1 = None
+        self.milvus_openclip_batch1 = None
+        
         self.lock = threading.Lock()  # Lock to handle concurrent initialization
 
     def get_clip_service(self):
@@ -21,15 +29,21 @@ class ServiceManager:
                 if self.clip_service is None:  # Double-check locking
                     self.clip_service = CLIPService()
         return self.clip_service
-
-    def get_milvus_service(self):
-        if self.milvus_service is None:
+    
+    def get_milvus_service_with_collection(self, collection_name):
+        if self.milvus_services[collection_name] is None:
             with self.lock:
-                if self.milvus_service is None:
-                    self.milvus_service = MilvusService()
-        return self.milvus_service
+                if self.milvus_services[collection_name] is None:
+                    self.milvus_services[collection_name] = MilvusService(collection_name=collection_name)
+        return self.milvus_services[collection_name]
+    
+    def get_milvus_services(self) -> dict:
+        self.get_milvus_service_with_collection(collection_name=OPENCLIP_BATCH1)
+        self.get_milvus_service_with_collection(collection_name=BEIT3_BATCH1)
+        return self.milvus_services
 
     def get_redis_service(self):
+        from services.redis_service import RedisService
         if self.redis_service is None:
             with self.lock:
                 if self.redis_service is None:
@@ -49,6 +63,13 @@ class ServiceManager:
                 if self.paraphrase_service is None:
                     self.paraphrase_service = ParaphraseService()
         return self.paraphrase_service
+    
+    def get_beit3_service(self):
+        if self.beit3_service is None:
+            with self.lock:
+                if self.beit3_service is None:
+                    self.beit3_service = BEiT3Service()
+        return self.beit3_service
 
 # Initialize service manager globally
 service_manager = ServiceManager()
@@ -57,8 +78,11 @@ service_manager = ServiceManager()
 def get_clip_service():
     return service_manager.get_clip_service()
 
-def get_milvus_service():
-    return service_manager.get_milvus_service()
+def get_milvus_service_with_collection(collection_name):
+    return service_manager.get_milvus_service_with_collection(collection_name=collection_name)
+
+def get_mivus_services():
+    return service_manager.get_milvus_services()
 
 def get_redis_service():
     return service_manager.get_redis_service()
@@ -68,3 +92,6 @@ def get_polar_service():
 
 def get_paraphrase_service():
     return service_manager.get_paraphrase_service()
+
+def get_beit3_service():
+    return service_manager.get_beit3_service()

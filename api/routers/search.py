@@ -5,12 +5,10 @@ import torch
 
 from typing import List, Dict, Optional
 from models.schemas import Query, ResultItem, InformationOfFrame
-from services.clip_service import CLIPService
-from services.milvus_service import MilvusService
 from services.redis_service import RedisService
 from services.polar_service import PolarService
-from config.settings import MAX_FRAME_GAP, MEDIA_SERVER_URL, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES
-from dependencies.services import get_clip_service, get_milvus_service, get_polar_service, get_redis_service
+from config.settings import MAX_FRAME_GAP, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES
+from dependencies.services import get_polar_service, get_redis_service
 from core.utils import get_valid_queries
 from utils.es_module import get_text_by_frame
 from collections import defaultdict
@@ -62,10 +60,7 @@ async def get_stage(
     stage_number: int = 1,   # stage_number tính từ 1 (client gửi lên)
     page: int = 1,
     page_size: int = 100,
-    milvus_service: MilvusService = Depends(get_milvus_service),
     redis_service: RedisService = Depends(get_redis_service),
-    polar_service: PolarService = Depends(get_polar_service),
-    clip_service: CLIPService = Depends(get_clip_service),
 ):
     try:
         # Check valid stage_number
@@ -80,9 +75,6 @@ async def get_stage(
             
             all_answers = await redis_service.get_all_answers_cached_redis(
                 queries=queries,
-                clip_service=clip_service,
-                milvus_service=milvus_service,
-                polar_service=polar_service,
                 ttl_seconds=TIME_CACHE_ONE_QUERY 
             )
 
@@ -91,9 +83,6 @@ async def get_stage(
         
         results = await redis_service.get_one_answer_cached_redis(
             query=query,
-            clip_service=clip_service,
-            milvus_service=milvus_service,
-            polar_service=polar_service,
             ttl_seconds=TIME_CACHE_ONE_QUERY,
         ) or []
 
@@ -119,10 +108,7 @@ async def get_stage(
 @router.post("/search", response_model=List[ResultItem])
 async def search_text(
     queries: List[Query],
-    milvus_service: MilvusService = Depends(get_milvus_service),
     redis_service: RedisService = Depends(get_redis_service),
-    polar_service: PolarService = Depends(get_polar_service),
-    clip_service: CLIPService = Depends(get_clip_service),
     page: int = 1,
     page_size: int = 100,
     user_id: str = 'anynomous',
@@ -138,30 +124,27 @@ async def search_text(
             start_time = time.time()
             all_answers = await redis_service.get_all_answers_cached_redis(
                 queries=queries,
-                clip_service=clip_service,
-                milvus_service=milvus_service,
-                polar_service=polar_service,
                 ttl_seconds=TIME_CACHE_ONE_QUERY 
             )
 
             start_time_algo = time.time()
-            device = clip_service.device
+            device = "cuda"
             # Bước 1: Gộp tất cả hits của từng stage
             # all_answers là list (n_stage) của list (top_k dict)
             all_hits = []
             for stage_idx, hits in enumerate(all_answers):
                 for h in hits:
-                    all_hits.append((stage_idx, int(h["frame_id"]), h["score"], h["filepath"], h.get("video_id", "")))
+                    all_hits.append((stage_idx, int(h["frame_id"]), h["score"], h.get("video_id", "")))
 
             # Bước 2: Gộp thành từng stage
             n_stage = len(queries)
             stage_to_hits = [[] for _ in range(n_stage)]
-            for stage_idx, frame_id, score, path, video_id in all_hits:
-                stage_to_hits[stage_idx].append((frame_id, score, path, video_id))
+            for stage_idx, frame_id, score, video_id in all_hits:
+                stage_to_hits[stage_idx].append((frame_id, score, video_id))
             
             # Bước 3: Tạo tensor cho toàn bộ các stage
             tensor_stages = []
-            device = clip_service.device
+            device = "cuda"
             for hits in stage_to_hits:
                 if not hits:
                     tensor_stages.append((torch.tensor([], device=device), torch.tensor([], device=device), []))
@@ -197,8 +180,8 @@ async def search_text(
 
             final_results = []
             for i in range(len(base_fids)):
-                frame_id, score, path, video_id = (*base_raw[i][:3], base_raw[i][3])
-                final_results.append((final_scores[i].item(), path, frame_id, video_id))
+                frame_id, score, video_id = base_raw[i]  # just unpack the 3-tuple
+                final_results.append((final_scores[i].item(), frame_id, video_id))
 
             # Format lại kết quả
             end_time = time.time()
@@ -218,7 +201,7 @@ async def search_text(
                 confidence=round(score, 4),
                 timestamp=str(frame_id)
             )
-            for i, (score, path, frame_id, video_id) in enumerate(paged_results)
+            for i, (score, frame_id, video_id) in enumerate(paged_results)
         ]
 
     except Exception as e:
@@ -228,10 +211,7 @@ async def search_text(
 @router.post("/chain_search", response_model=List[ResultItem])
 async def chain_search_text(
     queries: List[Query],
-    milvus_service: MilvusService = Depends(get_milvus_service),
     redis_service: RedisService = Depends(get_redis_service),
-    polar_service: PolarService = Depends(get_polar_service),
-    clip_service: CLIPService = Depends(get_clip_service),
     page: int = 1,
     page_size: int = 100,
     user_id: str = 'anonymous', 
@@ -247,9 +227,6 @@ async def chain_search_text(
             start_time = time.time()
             all_answers = await redis_service.get_all_answers_cached_redis(
                 queries=queries,
-                clip_service=clip_service,
-                milvus_service=milvus_service,
-                polar_service=polar_service,
                 ttl_seconds=TIME_CACHE_ONE_QUERY
             )
             
@@ -259,7 +236,7 @@ async def chain_search_text(
             for stage_idx, hits in enumerate(all_answers):
                 for h in hits:
                     video_groups[h["video_id"]][stage_idx].append(
-                        (int(h["frame_id"]), h["score"], h["filepath"])
+                        (int(h["frame_id"]), h["score"])
                     )
 
             # === ALIGN AND SCORE CHAINS ===
@@ -273,8 +250,8 @@ async def chain_search_text(
                 tensor_stages = []
                 for stage in stage_hits:
                     stage_sorted = sorted(stage)
-                    fids = torch.tensor([f[0] for f in stage_sorted], device=clip_service.device)
-                    scores = torch.tensor([f[1] for f in stage_sorted], device=clip_service.device)
+                    fids = torch.tensor([f[0] for f in stage_sorted], device="cuda")
+                    scores = torch.tensor([f[1] for f in stage_sorted], device="cuda")
                     tensor_stages.append((fids, scores, stage_sorted))
 
                 n_stages = len(tensor_stages)
@@ -325,7 +302,7 @@ async def chain_search_text(
         # Convert ra ResultItem
         result_list = []
         for i, (score, frameinfo, video_id) in enumerate(paged_results):
-            frame_id, frame_score, filepath = frameinfo
+            frame_id, frame_score = frameinfo
             stage = i % len(queries)
             result_list.append(
                 ResultItem(

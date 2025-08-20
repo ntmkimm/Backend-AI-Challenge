@@ -65,5 +65,5 @@ class SearchResult:
             video_id=video_id,
             frame_id=frame_id,
             score=hit['_score'],
-            filepath=filepath
+            # filepath=filepath
         ) 

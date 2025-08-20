@@ -13,7 +13,7 @@ import torch
 import torch.multiprocessing as mp
 
 # === CONFIG ===
-COLLECTION_NAME = 'AIC25_fullbatch1'
+COLLECTION_NAME = 'AIC25_batch1_beit3'
 DIMENSION = 1024
 MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
@@ -43,14 +43,16 @@ def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
         try:
             img_path = Path(img_path)
             # vector_file is sibling of keyframes folder
-            vec_path = img_path.parent.parent / "vector_file" / (img_path.stem + ".npz")
+            # vec_path = img_path.parent.parent / "vector_file" / (img_path.stem + ".npz")
+            vec_path = img_path.parent.parent / "beit3_vector" / (img_path.stem + ".npz")
             if not vec_path.exists():
                 # skip if vector missing
                 continue
 
             # Load npz -> 'feature' (shape [DIMENSION])
             try:
-                feat = np.load(vec_path)["feature"]
+                # feat = np.load(vec_path)["feature"]
+                feat = np.load(vec_path)["embedding"]
             except Exception as e:
                 print(f"[Worker {rank}] Failed to load {vec_path}: {e}")
                 continue
@@ -79,7 +81,7 @@ def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
                     # Milvus expects column-major field lists
                     collection.insert([
                         buffer['ids'],
-                        buffer['paths'],
+                        # buffer['paths'],
                         buffer['npz'],
                         buffer['videos'],
                         buffer['frames'],
@@ -111,7 +113,7 @@ def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
         try:
             collection.insert([
                 buffer['ids'],
-                buffer['paths'],
+                # buffer['paths'],
                 buffer['npz'],
                 buffer['videos'],
                 buffer['frames'],
@@ -145,7 +147,7 @@ def main():
     # Define schema
     schema = CollectionSchema([
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
-        FieldSchema(name="filepath", dtype=DataType.VARCHAR, max_length=512),
+        # FieldSchema(name="filepath", dtype=DataType.VARCHAR, max_length=512),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
         FieldSchema(name="video_id", dtype=DataType.VARCHAR, max_length=256),
         FieldSchema(name="frame_id", dtype=DataType.INT64),

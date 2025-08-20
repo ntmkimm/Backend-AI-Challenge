@@ -73,6 +73,6 @@ class Service:
 
         # Return normalized results
         return [
-            (r.video_id, r.frame_id, norm_score, r.filepath)
+            (r.video_id, r.frame_id, norm_score)
             for r, norm_score in zip(results, normalized)
         ]
