@@ -260,7 +260,7 @@ class ProcessSafeMilvusInserter:
             schema = CollectionSchema([
                 FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
                 FieldSchema(name="filepath", dtype=DataType.VARCHAR, max_length=512),
-                FieldSchema(name="clip_embedding", dtype=DataType.FLOAT_VECTOR, dim=self.config.dimension),
+                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self.config.dimension),
                 FieldSchema(name="video_id", dtype=DataType.VARCHAR, max_length=300),
                 FieldSchema(name="frame_id", dtype=DataType.INT64),
             ])
@@ -277,7 +277,7 @@ class ProcessSafeMilvusInserter:
                 }
             }
             
-            self.collection.create_index("clip_embedding", index_params)
+            self.collection.create_index("embedding", index_params)
             self.collection.load()
             
             logging.info(f"Milvus collection {collection_name} setup completed")

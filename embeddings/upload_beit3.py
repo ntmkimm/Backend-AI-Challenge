@@ -180,6 +180,14 @@ def encode_worker(rank, world_size, indexed_paths, device_ids):
                     # Get embeddings from BEiT3 model
                     vision_embs, _ = model(image=inputs, only_infer=True)
                     embs_list = vision_embs.cpu().tolist()
+                    
+                    for i, embedding in enumerate(vision_embs.cpu()):
+                        video_id = buffer['videos'][i]
+                        frame_name = buffer['frames'][i]
+                        save_dir = ROOT / video_id / "beit3_vector"
+                        save_dir.mkdir(parents=True, exist_ok=True)
+                        save_path = save_dir / f"{buffer['paths'][i].split('/')[-1].replace('.webp', '.npz')}"
+                        np.savez(save_path, embedding=embedding.numpy())
 
                 try:
                     collection.insert([
@@ -210,6 +218,16 @@ def encode_worker(rank, world_size, indexed_paths, device_ids):
             inputs = torch.stack(buffer['images']).to(device)
             vision_embs, _ = model(image=inputs, only_infer=True)
             embs_list = vision_embs.cpu().tolist()
+            
+            # Save individual embedding vectors to .npz
+            for i, embedding in enumerate(vision_embs.cpu()):
+                video_id = buffer['videos'][i]
+                frame_name = buffer['frames'][i]
+                save_dir = ROOT / video_id / "beit3_vector"
+                save_dir.mkdir(parents=True, exist_ok=True)
+                save_path = save_dir / f"{buffer['paths'][i].split('/')[-1].replace('.webp', '.npz')}"
+                np.savez(save_path, embedding=embedding.numpy())
+
         try:
             collection.insert([
                 buffer['ids'],
@@ -264,6 +282,7 @@ def main():
     image_paths = []
     for sub in sorted(ROOT.iterdir()):
         if sub.is_dir():
+            if sub.stem >= 'L26_V074' and sub.stem <= 'L26_V366': continue
             kf_dir = sub / "keyframes"
             if kf_dir.exists():
                 image_paths.extend(sorted(kf_dir.glob("*.webp")))

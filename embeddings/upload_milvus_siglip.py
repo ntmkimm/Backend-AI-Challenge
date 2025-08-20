@@ -109,12 +109,12 @@ def main():
     schema = CollectionSchema([
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
         FieldSchema(name="filepath", dtype=DataType.VARCHAR, max_length=300),
-        FieldSchema(name="siglip_embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
         FieldSchema(name="video_id", dtype=DataType.VARCHAR, max_length=300),
         FieldSchema(name="frame_id", dtype=DataType.INT64),
     ])
     collection = Collection(name=COLLECTION_NAME, schema=schema)
-    collection.create_index("siglip_embedding", {
+    collection.create_index("embedding", {
         "metric_type": "COSINE", "index_type": "IVF_FLAT", "params": {"nlist": 16384}
     })
     collection.load()

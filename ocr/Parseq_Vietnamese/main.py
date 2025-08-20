@@ -11,12 +11,12 @@ import cv2
 
 class Args:
     checkpoint = 'new-parseq.ckpt'
-    root_videos = Path('/mlcv2/Datasets/HCMAI24/updated/videos/batch1')
-    root_bboxes = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/full_batch1')
-    output = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1')
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    batch_size = 36
-    num_workers = 4
+    root_videos = Path('/mlcv2/Datasets/HCMAI25/batch1/video')
+    root_bboxes = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/batch1_2025')
+    output = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1')
+    device = 'cuda'
+    batch_size = 8
+    num_workers = 1
     rotation = 0
 
 args = Args()
@@ -140,18 +140,65 @@ def remove_bboxes_in_y_range(infos, lo_bound, up_bound):
         filtered.append(info)
     return filtered
 
-for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
+ # --> internal = [start_video, end_video)
+    
+# start_video = 'L21_V001' # include this video
+# end_video = 'L23_V001' # not include this video
+
+# start_video = 'L23_V001' # include this video
+# end_video = 'L25_V001' # not include this video
+
+# start_video = 'L25_V001' # include this video
+# end_video = 'L26_V001' # not include this video
+
+# start_video = 'L26_V001' # include this video
+# end_video = 'L27_V001' # not include this video
+
+# start_video = 'L27_V001' # include this video
+# end_video = 'L28_V001' # not include this video
+
+# start_video = 'L28_V001' # include this video
+# end_video = 'L29_V001' # not include this video
+
+# start_video = 'L29_V001' # include this video
+# end_video = 'L31_V001' # not include this video
+
+# all
+start_video = 'L26_V001' # include this video
+end_video = 'L26_V337' # not include this video
+
+start_video1 = 'L28_V009' # include this video
+end_video1 = 'L29_V001' # not include this video
+
+print("start_video: ", start_video)
+print("end_video: ", end_video)
+print("start_video1: ", start_video1)
+print("end_video1: ", end_video1)
+
+video_files = []
+for _video_path in sorted(args.root_videos.glob("*.mp4")):
+    video_name = _video_path.stem
+    # if not (start_video <= video_name and video_name < end_video): continue
+    if not ((start_video <= video_name and video_name < end_video) or (start_video1 <= video_name and video_name < end_video1)): continue
+    video_files.append(_video_path)
+    
+video_files = video_files[::-1]
+print("reverse")
+
+for _video_path in tqdm.tqdm(video_files):
     _video_id = _video_path.stem
-    output_file = args.output / _video_id / "ocr_parseq_new.json"
+    print("process video: ", _video_id)
+    output_file = args.output / _video_id / "ocr_parseq.json"
     # Nếu file đã tồn tại thì skip luôn
-    if output_file.exists():
-        print(f"Skip {_video_id} (output already exists)")
-        continue
+    # if output_file.exists():
+    #     print(f"Skip {_video_id} (output already exists)")
+    #     continue
     
     cap = cv2.VideoCapture(str(_video_path))
-    
-    with open(args.root_bboxes / (_video_id + ".json"), 'r') as fi:
-        _video_dic = json.load(fi)
+    if (args.root_bboxes / (_video_id + ".json")).exists():
+        with open(args.root_bboxes / (_video_id + ".json"), 'r') as fi:
+            _video_dic = json.load(fi)
+    else: continue
     _video_dic = dict(sorted(_video_dic.items(), key=lambda x: int(x[0])))
     
     _video_res = {}
@@ -159,7 +206,7 @@ for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(_frame_id))
         ret, frame = cap.read()
         
-        _infos = remove_bboxes_in_rect(infos=_infos, rect_x1=1040, rect_y1=55, rect_x2=1190, rect_y2=120)
+        # _infos = remove_bboxes_in_rect(infos=_infos, rect_x1=1040, rect_y1=55, rect_x2=1190, rect_y2=120)
         _infos = remove_bboxes_in_y_range(_infos, lo_bound=655, up_bound=690)
         _infos = remove_containing_boxes(_infos, margin=5)
         _infos = sort_bboxes_linewise(_infos, y_thresh=15)
@@ -167,7 +214,9 @@ for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
         text = ""
         h, w = frame.shape[:2]
         crop_imgs = []
-        for _info in _infos:
+        _id_batch = []
+        for _id_info, _info in enumerate(_infos):
+            _id_batch.append(_id_info)
             x1, y1, x2, y2 = map(int, _info['bbox'])
             score = _info['score']
             
@@ -184,26 +233,47 @@ for _video_path in tqdm.tqdm(sorted(args.root_videos.glob("*.mp4"))):
             crop_img = Image.fromarray(crop_img)
             crop_imgs.append(crop_img)
             if len(crop_imgs) == args.batch_size:
-                batch = torch.stack([img_transform(img) for img in crop_imgs]).to(args.device)
-                logits = model(batch)
-                logits.shape  # torch.Size([1, 26, 95]), 94 characters + [EOS] symbol
+                with torch.no_grad():
+                    batch = torch.stack([img_transform(img) for img in crop_imgs]).to(args.device)
+                    logits = model(batch)
+                    logits.shape  # torch.Size([1, 26, 95]), 94 characters + [EOS] symbol
 
-                # Greedy decoding
-                pred = logits.softmax(-1)
-                labels, confidences = model.tokenizer.decode(pred)
+                    # Greedy decoding
+                    pred = logits.softmax(-1)
+                    labels, confidences = model.tokenizer.decode(pred)
+                for _idd, _label, _conf in zip(_id_batch, labels, confidences):
+                    _infos[_idd]["text"] = _label 
+                    _infos[_idd]["score_parseq"] = _conf
+                _id_batch = []
                 text += " " + " ".join(labels)
                 crop_imgs = []
+                del batch, logits, pred
+                torch.cuda.empty_cache()
                 
         if len(crop_imgs) > 0:
-            batch = torch.stack([img_transform(img) for img in crop_imgs]).to(args.device)
-            logits = model(batch)
-            pred = logits.softmax(-1)
-            labels, confidences = model.tokenizer.decode(pred)
+            with torch.no_grad():
+                batch = torch.stack([img_transform(img) for img in crop_imgs]).to(args.device)
+                logits = model(batch)
+                pred = logits.softmax(-1)
+                labels, confidences = model.tokenizer.decode(pred)
+            for _idd, _label, _conf in zip(_id_batch, labels, confidences):
+                _infos[_idd]["text"] = _label 
+                _infos[_idd]["score_parseq"] = _conf
+                _id_batch = []
             text += " " + " ".join(labels)
+            
+            del batch, logits, pred
+            torch.cuda.empty_cache()
             
         _video_res[_frame_id] = text.lower()
     
     cap.release()
+    
+    Path(args.root_bboxes.parent / (args.root_bboxes.name + "_parseq")).mkdir(exist_ok=True, parents=True)
+    with open((args.root_bboxes + "_parseq") / (_video_id + ".json"), "w") as fi:
+        json.dump(_video_dic, fi)
+
+    
     with open(output_file, 'w') as f:
         json.dump(_video_res, f)
     

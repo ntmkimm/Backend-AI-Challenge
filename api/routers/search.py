@@ -106,8 +106,6 @@ async def get_stage(
             ResultItem(
                 id=str(i + start),
                 videoId=h.get("video_id", ""),
-                title=f"{h.get('video_id', '')}/{h.get('frame_id', '')}",
-                thumbnail=f"{MEDIA_SERVER_URL}/{h.get('filepath', '')}",
                 confidence=round(h.get("score", 0), 4),
                 timestamp=str(h.get("frame_id", ""))
             )
@@ -217,8 +215,6 @@ async def search_text(
             ResultItem(
                 id=str(i + start),
                 videoId=video_id,
-                title=f"{video_id}/{frame_id}",
-                thumbnail=f"{MEDIA_SERVER_URL}/{path}",
                 confidence=round(score, 4),
                 timestamp=str(frame_id)
             )
@@ -335,8 +331,6 @@ async def chain_search_text(
                 ResultItem(
                     id=f"{i+start}",
                     videoId=video_id,
-                    title=f"{video_id}/{frame_id}_{stage}",
-                    thumbnail=f"{MEDIA_SERVER_URL}/{filepath}",
                     confidence=round(score, 4),
                     timestamp=str(frame_id)
                 )

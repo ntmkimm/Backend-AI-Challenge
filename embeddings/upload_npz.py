@@ -19,7 +19,7 @@ MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
 BATCH_SIZE = 1024          # batch insert to Milvus (vectors only; no GPU needed here)
 FLUSH_INTERVAL = 20000    # flush every N rows
-ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1")
+ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
 
 def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
     """
@@ -146,7 +146,7 @@ def main():
     schema = CollectionSchema([
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
         FieldSchema(name="filepath", dtype=DataType.VARCHAR, max_length=512),
-        FieldSchema(name="clip_embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
         FieldSchema(name="video_id", dtype=DataType.VARCHAR, max_length=256),
         FieldSchema(name="frame_id", dtype=DataType.INT64),
     ])
@@ -161,7 +161,7 @@ def main():
             "efConstruction": 512
         }
     }
-    collection.create_index("clip_embedding", index_params)
+    collection.create_index("embedding", index_params)
     collection.load()
 
     # Gather image paths (we trust vectors exist next to them)

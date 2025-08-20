@@ -18,8 +18,6 @@ class InformationOfFrame(BaseModel):
 class ResultItem(BaseModel):
     id: str
     videoId: str
-    title: str
-    thumbnail: str
     confidence: float
     timestamp: str
 

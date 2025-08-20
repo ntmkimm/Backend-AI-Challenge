@@ -107,7 +107,7 @@ def main():
     schema = CollectionSchema([
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
         FieldSchema(name="filepath", dtype=DataType.VARCHAR, max_length=300),
-        FieldSchema(name="clip_embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
         FieldSchema(name="video_id", dtype=DataType.VARCHAR, max_length=300),
         FieldSchema(name="frame_id", dtype=DataType.INT64),
     ])
@@ -120,7 +120,7 @@ def main():
             "efConstruction": 512  # Higher for better quality
         }
     }
-    collection.create_index("clip_embedding", index_params)
+    collection.create_index("embedding", index_params)
     collection.load()
 
     image_paths = []
