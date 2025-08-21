@@ -7,7 +7,7 @@ from typing import List, Dict, Optional
 from models.schemas import Query, ResultItem, InformationOfFrame
 from services.redis_service import RedisService
 from services.polar_service import PolarService
-from config.settings import MAX_FRAME_GAP, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES
+from config.settings import MAX_FRAME_GAP, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES, MIN_FRAME_GAP
 from dependencies.services import get_polar_service, get_redis_service
 from core.utils import get_valid_queries
 from utils.es_module import get_text_by_frame
@@ -266,7 +266,7 @@ async def chain_search_text(
                     curr_fids, curr_scores, _ = tensor_stages[i]
 
                     diff = curr_fids[:, None] - prev_fids[None, :]
-                    valid = (diff > 0) & (diff <= MAX_FRAME_GAP // len(queries))
+                    valid = (diff > MIN_FRAME_GAP) & (diff <= MAX_FRAME_GAP // len(queries))
 
                     # decay = (MAX_FRAME_GAP - diff) / MAX_FRAME_GAP
                     decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 50)

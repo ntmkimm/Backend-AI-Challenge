@@ -1,7 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 from config.settings import DEVICE, PARAPHRASE_MODEL
-print("Loading model...")
 
 class ParaphraseService:
     def __init__(self):

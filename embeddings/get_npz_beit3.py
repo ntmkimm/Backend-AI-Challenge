@@ -19,11 +19,12 @@ from tqdm import tqdm
 
 # === CONFIGURATION ===
 ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
-BATCH_SIZE = 8
+BATCH_SIZE = 36
 MODEL_NAME = "beit3_large_patch16_384_retrieval"
 MODEL_FOLDER = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/models')
 CKPT_PATH = MODEL_FOLDER / ('beit3_large_patch16_384_coco_retrieval' + '.pth')
 IMAGE_INPUT_SIZE = 384
+SAVE_FOLDER_NAME = "beit3_vector"
 
 # === BEiT3 MODEL DEFINITIONS ===
 
@@ -134,7 +135,7 @@ def encode_worker(rank, world_size, indexed_paths, device_ids):
 
                 for i, emb in enumerate(vision_embs):
                     video_id = buffer['videos'][i]
-                    save_dir = ROOT / video_id / "beit3_vector"
+                    save_dir = ROOT / video_id / SAVE_FOLDER_NAME
                     save_dir.mkdir(parents=True, exist_ok=True)
                     save_path = save_dir / f"{Path(buffer['paths'][i]).stem}.npz"
                     np.savez(save_path, embedding=emb.numpy())
@@ -155,7 +156,7 @@ def encode_worker(rank, world_size, indexed_paths, device_ids):
 
         for i, emb in enumerate(vision_embs):
             video_id = buffer['videos'][i]
-            save_dir = ROOT / video_id / "beit3_vector"
+            save_dir = ROOT / video_id / SAVE_FOLDER_NAME
             save_dir.mkdir(parents=True, exist_ok=True)
             save_path = save_dir / f"{Path(buffer['paths'][i]).stem}.npz"
             np.savez(save_path, embedding=emb.numpy())
@@ -185,7 +186,7 @@ def main():
     for sub in tqdm(sorted(ROOT.iterdir())):
         if sub.is_dir():
             kf_dir = sub / "keyframes"
-            vec_dir = sub / "beit3_vector"
+            vec_dir = sub / SAVE_FOLDER_NAME
             if kf_dir.exists():
                 for _img in sorted(kf_dir.glob("*.webp")):
                     npz_path = vec_dir / (_img.stem + ".npz")
@@ -198,9 +199,9 @@ def main():
 
     print(f"Found {len(image_paths)} images to process.")
     indexed_paths = list(enumerate(image_paths))
-    print("forward")
-    # indexed_paths = indexed_paths[::-1]
-    # print("reverse")
+    # print("forward")
+    indexed_paths = indexed_paths[::-1]
+    print("reverse")
 
     device_ids = list(range(torch.cuda.device_count()))
     if not device_ids:

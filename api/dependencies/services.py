@@ -30,7 +30,7 @@ class ServiceManager:
                     self.clip_service = CLIPService()
         return self.clip_service
     
-    def get_milvus_service_with_collection(self, collection_name):
+    def get_milvus_service_with_collection(self, collection_name) -> MilvusService:
         if self.milvus_services[collection_name] is None:
             with self.lock:
                 if self.milvus_services[collection_name] is None:

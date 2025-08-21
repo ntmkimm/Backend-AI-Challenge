@@ -13,14 +13,13 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.models.layers import trunc_normal_ as __call_trunc_normal_
 from timm.models.registry import register_model
 from torchscale.architecture.config import EncoderConfig
-from torchscale.model.BEiT3 import BEiT3
 from torchvision import transforms
 from tqdm import tqdm
 from services.MetaCLIP.src.mini_clip.factory import create_model_and_transforms, get_tokenizer
 
 # === CONFIGURATION ===
 ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
-BATCH_SIZE = 8
+BATCH_SIZE = 40
 SAVE_FOLDER_NAME = "metaclip_vector"
 
 def encode_worker(rank, world_size, indexed_paths, device_ids):
@@ -33,7 +32,7 @@ def encode_worker(rank, world_size, indexed_paths, device_ids):
 
     buffer = {'images': [], 'paths': [], 'videos': [], 'frames': []}
 
-    for _, path in tqdm(my_paths, desc=f"[GPU {rank}]"):
+    for _idx, path in tqdm(my_paths, desc=f"[GPU {rank}]"):
         try:
             img = Image.open(path).convert("RGB")
             buffer['images'].append(preprocess(img))
@@ -48,7 +47,7 @@ def encode_worker(rank, world_size, indexed_paths, device_ids):
 
                 for i, emb in enumerate(vision_embs):
                     video_id = buffer['videos'][i]
-                    save_dir = ROOT / video_id / "beit3_vector"
+                    save_dir = ROOT / video_id / SAVE_FOLDER_NAME
                     save_dir.mkdir(parents=True, exist_ok=True)
                     save_path = save_dir / f"{Path(buffer['paths'][i]).stem}.npz"
                     np.savez(save_path, embedding=emb.numpy())
@@ -101,9 +100,9 @@ def main():
             vec_dir = sub / SAVE_FOLDER_NAME
             if kf_dir.exists():
                 for _img in sorted(kf_dir.glob("*.webp")):
-            #         npz_path = vec_dir / (_img.stem + ".npz")
-            #         if not npz_path.exists() or not is_valid_npz(npz_path):
-                    image_paths.append(_img)
+                    npz_path = vec_dir / (_img.stem + ".npz")
+                    if not npz_path.exists() or not is_valid_npz(npz_path):
+                        image_paths.append(_img)
 
     if not image_paths:
         print("Error: No images found. Please check the ROOT directory.")
@@ -111,9 +110,9 @@ def main():
 
     print(f"Found {len(image_paths)} images to process.")
     indexed_paths = list(enumerate(image_paths))
-    # print("forward")
-    indexed_paths = indexed_paths[::-1]
-    print("reverse")
+    print("forward")
+    # indexed_paths = indexed_paths[::-1]
+    # print("reverse")
 
     device_ids = list(range(torch.cuda.device_count()))
     if not device_ids:
