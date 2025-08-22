@@ -6,7 +6,7 @@ from dependencies.services import service_manager
 from models.schemas import Query
 from services.milvus_service import MilvusService
 from services.clip_service import CLIPService
-from config.settings import OPENCLIP_BATCH1, BEIT3_BATCH1
+from config.settings import OPENCLIP_BATCH1, BEIT3_BATCH1, DEVICE_0, DEVICE_1
 
 import asyncio
 from typing import List
@@ -28,7 +28,6 @@ async def search_by_text(
     print("time search milvus: ", t2 - t1)
 
     return results
-
 
 async def search_by_image(
     embedding_service,                # CLIPService
@@ -53,14 +52,18 @@ async def search_one_query(
 ):
     polar_service = service_manager.get_polar_service()
     milvus_services = service_manager.get_milvus_services()
-    # clip_service = service_manager.get_clip_service()
+    clip_service = service_manager.get_clip_service(device=DEVICE_0)
     # beit3_service = None
-    clip_service = None
-    beit3_service = service_manager.get_beit3_service()
+    # clip_service = None
+    beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
     
     start_time = time.time()
     buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None}
-    weighted_score = { 'text': 0.5, 'ocr': 0.5, 'asr': 0.2, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
+    
+    if beit3_service and clip_service:
+        weighted_score = { 'text': 0.25, 'ocr': 0.5, 'asr': 0.35, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
+    else:
+        weighted_score = { 'text': 0.5, 'ocr': 0.5, 'asr': 0.35, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
     
     # Chuẩn bị các task async / blocking
     tasks = []

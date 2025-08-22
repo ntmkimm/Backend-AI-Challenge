@@ -27,7 +27,7 @@ def search_by_ocr(query: str, size: int = 10) -> List[str]:
         List[str]: Danh sách các frame chứa văn bản OCR phù hợp.
     """
     service = get_service()
-    return service.search(query, size, fields=['ocr_text'])
+    return service.search(query, size, fields=['ocr_text'], search_type='fuzzy')
 
 def search_by_asr(query: str, size: int = 10) -> List[str]:
     """
@@ -41,7 +41,7 @@ def search_by_asr(query: str, size: int = 10) -> List[str]:
         List[str]: Danh sách các frame chứa văn bản OCR phù hợp.
     """
     service = get_service()
-    return service.search(query, size, fields=['asr_text'])
+    return service.search(query, size, fields=['asr_text'], search_type='fuzzy')
 
 def search_by_ocr_asr(query: str, size: int = 10) -> List[str]:
     """
@@ -55,7 +55,7 @@ def search_by_ocr_asr(query: str, size: int = 10) -> List[str]:
         List[str]: Danh sách các frame chứa văn bản OCR phù hợp.
     """
     service = get_service()
-    return service.search(query, size, fields=['ocr_text', 'asr_text'])
+    return service.search(query, size, fields=['ocr_text', 'asr_text'], search_type='fuzzy')
 
 import asyncio
 

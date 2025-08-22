@@ -13,7 +13,6 @@ MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
 
 # NOTE: CHÚ Ý EMBEDDING
-# COLLECTION_NAME = "AIC25_fullbatch1_metaclip"
 # CLIP_MODEL = "metaclip"
 
 CLIP_MODEL = "openclip"
@@ -22,7 +21,8 @@ CLIP_MODEL = "openclip"
 OPENCLIP_BATCH1 = "AIC25_batch1_openclip"
 BEIT3_BATCH1 = "AIC25_batch1_beit3"
 
-DEVICE = "cuda"  # Will be overridden based on availability
+DEVICE_0 = "cuda:0" 
+DEVICE_1 = "cuda:1"
 
 OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1/objects.parquet"
 

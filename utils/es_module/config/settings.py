@@ -56,7 +56,7 @@ class ElasticsearchConfig:
                             "exact": {"type": "text", "analyzer": "standard"}
                         }
                     },
-                    "thumbnail_ocr": {
+                    "asr_text": {
                         "type": "text",
                         "analyzer": "vietnamese",
                         "fields": {

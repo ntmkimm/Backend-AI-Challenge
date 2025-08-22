@@ -104,12 +104,12 @@ def beit3_large_patch16_384_retrieval(pretrained=False, **kwargs):
 # === SERVICE CLASS ===
 
 class BEiT3Service:
-    def __init__(self, checkpoint_path: str = BEIT3_CHECKPOINT_PATH):
+    def __init__(self, device, checkpoint_path: str = BEIT3_CHECKPOINT_PATH):
         print(f"Initializing BEiT3 Service...")
         if not Path(checkpoint_path).exists():
             raise FileNotFoundError(f"Checkpoint file not found at {checkpoint_path}. Please update the BEIT3_CHECKPOINT_PATH.")
 
-        self.device = DEVICE
+        self.device = device
         
         # 1. Load Model
         self.model = timm.create_model(MODEL_NAME, pretrained=False)

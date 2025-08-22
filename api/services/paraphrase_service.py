@@ -1,12 +1,12 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
-from config.settings import DEVICE, PARAPHRASE_MODEL
+from config.settings import DEVICE_0, PARAPHRASE_MODEL
 
 class ParaphraseService:
     def __init__(self):
         print("Init paraphrase service")
         self.tokenizer = AutoTokenizer.from_pretrained(PARAPHRASE_MODEL)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(PARAPHRASE_MODEL).to(DEVICE)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(PARAPHRASE_MODEL).to(DEVICE_0)
         self.model.eval()
 
     def paraphrase(self, question: str):
@@ -16,7 +16,7 @@ class ParaphraseService:
             padding="longest",
             max_length=128,
             truncation=True,
-        ).input_ids.to(DEVICE)
+        ).input_ids.to(DEVICE_0)
 
         with torch.no_grad():
             outputs = self.model.generate(

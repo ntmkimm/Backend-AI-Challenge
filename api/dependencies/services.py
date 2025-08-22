@@ -23,11 +23,11 @@ class ServiceManager:
         
         self.lock = threading.Lock()  # Lock to handle concurrent initialization
 
-    def get_clip_service(self):
+    def get_clip_service(self, device):
         if self.clip_service is None:
             with self.lock:
                 if self.clip_service is None:  # Double-check locking
-                    self.clip_service = CLIPService()
+                    self.clip_service = CLIPService(device=device)
         return self.clip_service
     
     def get_milvus_service_with_collection(self, collection_name) -> MilvusService:
@@ -64,11 +64,11 @@ class ServiceManager:
                     self.paraphrase_service = ParaphraseService()
         return self.paraphrase_service
     
-    def get_beit3_service(self):
+    def get_beit3_service(self, device):
         if self.beit3_service is None:
             with self.lock:
                 if self.beit3_service is None:
-                    self.beit3_service = BEiT3Service()
+                    self.beit3_service = BEiT3Service(device=device)
         return self.beit3_service
 
 # Initialize service manager globally

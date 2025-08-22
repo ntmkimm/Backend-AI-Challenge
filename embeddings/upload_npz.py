@@ -13,12 +13,20 @@ import torch
 import torch.multiprocessing as mp
 
 # === CONFIG ===
-COLLECTION_NAME = 'AIC25_batch1_beit3'
 DIMENSION = 1024
 MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
 BATCH_SIZE = 1024          # batch insert to Milvus (vectors only; no GPU needed here)
 FLUSH_INTERVAL = 20000    # flush every N rows
+
+COLLECTION_NAME = 'AIC25_batch1_beit3'
+NPZ_KEY = "embedding"
+SAVE_FOLDER_NAME = "beit3_vector"
+
+# COLLECTION_NAME = 'AIC25_batch1_openclip'
+# NPZ_KEY = "feature"
+# SAVE_FOLDER_NAME = "vector_file"
+
 ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
 
 def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
@@ -43,16 +51,14 @@ def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
         try:
             img_path = Path(img_path)
             # vector_file is sibling of keyframes folder
-            # vec_path = img_path.parent.parent / "vector_file" / (img_path.stem + ".npz")
-            vec_path = img_path.parent.parent / "beit3_vector" / (img_path.stem + ".npz")
+            vec_path = img_path.parent.parent / SAVE_FOLDER_NAME / (img_path.stem + ".npz")
             if not vec_path.exists():
                 # skip if vector missing
                 continue
 
             # Load npz -> 'feature' (shape [DIMENSION])
             try:
-                # feat = np.load(vec_path)["feature"]
-                feat = np.load(vec_path)["embedding"]
+                feat = np.load(vec_path)[NPZ_KEY]
             except Exception as e:
                 print(f"[Worker {rank}] Failed to load {vec_path}: {e}")
                 continue

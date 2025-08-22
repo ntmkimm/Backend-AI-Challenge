@@ -38,7 +38,8 @@ while true; do
         if [ -n "$index" ] && [ -n "$memory" ]; then
             # if { [ "$index" = "6" ] || [ "$index" = "7" ]; } && [ "$memory" -ge "$MIN_MEMORY" ]; then
             if { [ "$index" = "6" ]; } && [ "$memory" -ge "$MIN_MEMORY" ]; then
-                available_gpu="$index"
+                # available_gpu="$index"
+                available_gpu="6,7"
                 break  # Chỉ lấy GPU 6 hoặc 7 có đủ bộ nhớ
             fi
         fi

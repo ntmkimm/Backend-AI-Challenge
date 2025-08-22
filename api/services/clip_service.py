@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import open_clip
 from typing import List
-from config.settings import CLIP_MODEL, DEVICE, BATCH_SIZE
+from config.settings import CLIP_MODEL, BATCH_SIZE
 import numpy as np
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image
@@ -10,9 +10,9 @@ from services.MetaCLIP.src.mini_clip.factory import create_model_and_transforms,
 import asyncio
 
 class CLIPService:
-    def __init__(self, mode = CLIP_MODEL):
+    def __init__(self, device, mode = CLIP_MODEL):
         print(f"Init {CLIP_MODEL} Service...")
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device
         if mode == 'openclip':
             self.model, _, self.preprocess = open_clip.create_model_and_transforms('ViT-H-14-378-quickgelu', pretrained="dfn5b")
             self.tokenizer = open_clip.get_tokenizer('ViT-H-14-378-quickgelu')

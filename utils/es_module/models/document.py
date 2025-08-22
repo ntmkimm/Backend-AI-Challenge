@@ -3,9 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 
-# Root path for dataset
-ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1")
-
 @dataclass
 class Document:
     """Represents an document in Elasticsearch"""
@@ -15,9 +12,9 @@ class Document:
     asr_text: str
     
     @classmethod
-    def from_file(cls, video_dir, frame_id, ocr_text=None, asr_text=None):
+    def from_file(cls, video_dir: str, frame_id: str, ocr_text: str=None, asr_text: str=None):
         # video_id logic as before
-        return cls(video_dir.name, frame_id, ocr_text, asr_text)
+        return cls(video_dir, frame_id, ocr_text, asr_text)
 
     def to_index_doc(self, index_name):
         doc = {
@@ -39,7 +36,6 @@ class SearchResult:
     video_id: str
     frame_id: str
     score: float
-    filepath: str
     
     @property
     def unique_id(self) -> str:
@@ -57,9 +53,6 @@ class SearchResult:
         source = hit['_source']
         frame_id = source['frame_id']
         video_id = source['video_id']
-        
-        # Construct filepath using ROOT path
-        filepath = str(ROOT / video_id / ("keyframes/keyframe_" + frame_id + ".webp"))
         
         return cls(
             video_id=video_id,

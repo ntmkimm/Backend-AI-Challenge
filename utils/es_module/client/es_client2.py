@@ -49,7 +49,7 @@ class ElasticsearchClient:
         Process both OCR and ASR files and yield merged documents for indexing.
         Each frame gets one document, with both ocr_text and asr_text if available.
         """
-        ocr_file = video_dir / "ocr_parseq_new.json"
+        ocr_file = video_dir / "ocr_parseq.json"
         asr_file = video_dir / "asr.json"
         ocr_data, asr_data = {}, {}
 
@@ -77,7 +77,7 @@ class ElasticsearchClient:
                     error_frames['empty_text'].append(frame_id)
                     continue
 
-                doc = Document.from_file(video_dir, frame_id, ocr_text, asr_text)
+                doc = Document.from_file(video_dir.stem, frame_id, ocr_text, asr_text)
                 yield doc.to_index_doc(self.config.INDEX_NAME)
                 frame_count += 1
             except Exception as e:
@@ -93,32 +93,44 @@ class ElasticsearchClient:
                 if v:
                     print(f"      + {k} ({len(v)}): {v[:3]}{' ...' if len(v)>3 else ''}")
 
-    def index_dataset(self, dataset_path: Path, max_workers: int = 4) -> None:
-        """Index all files in the dataset in parallel, merging OCR and ASR per frame."""
+    def index_dataset(self, dataset_path: Path) -> None:
+        """
+        Index toàn bộ dataset theo cách đơn giản, tuần tự.
+        - Duyệt các thư mục batch*/.
+        - Trong mỗi batch, duyệt các thư mục video (bỏ qua 'maps').
+        - Với mỗi video, gọi self._process_files(video_dir) và streaming_bulk để index.
+        - In tiến độ và tổng kết cuối cùng.
+        """
         if not dataset_path.exists():
             raise ValueError(f"Dataset path does not exist: {dataset_path}")
 
-        batch_dirs = [
-            d for d in dataset_path.iterdir()
-            if d.is_dir() and d.name.startswith("full_batch")
-        ]
+        # Tìm các thư mục batch*
+        batch_dirs = [d for d in sorted(dataset_path.iterdir()) if d.is_dir() and d.name.startswith("batch")]
 
-        total_docs = 0
-        total_failures = []
-        processed_videos = 0
+        # Đếm tổng số video để in tiến độ
+        def iter_video_dirs() -> List[Path]:
+            for batch_dir in batch_dirs:
+                for d in sorted(batch_dir.iterdir()):
+                    if d.is_dir() and d.name != "maps":
+                        yield d
 
-        total_videos = sum(
-            len([d for d in batch_dir.iterdir() if d.is_dir() and not d.name == "maps"])
-            for batch_dir in batch_dirs
-        )
+        video_list = list(iter_video_dirs())
+        total_videos = len(video_list)
 
-        print(f"\nStarting indexing process:")
+        print("\nStarting indexing process:")
         print(f"Found {len(batch_dirs)} batch(es), will process all videos ({total_videos} videos)\n")
 
-        def index_video(video_dir):
-            batch_failures = []
+        total_docs = 0
+        total_failures: List[str] = []
+
+        # Duyệt tuần tự
+        for idx, video_dir in enumerate(video_list, start=1):
+            print(f"[{idx}/{total_videos}] Indexing {video_dir.name} ...")
             batch_success = 0
+            batch_failures: List[str] = []
+
             try:
+                # _process_files(video_dir) phải yield các action cho ES
                 for ok, result in streaming_bulk(
                     self.es,
                     self._process_files(video_dir),
@@ -128,28 +140,24 @@ class ElasticsearchClient:
                     if ok:
                         batch_success += 1
                     else:
-                        batch_failures.append(result)
+                        # result thường là dict error từ ES
+                        batch_failures.append(str(result))
             except Exception as e:
-                print(f"Error indexing {video_dir.name}: {e}")
+                print(f"  Error indexing {video_dir.name}: {e}")
                 batch_failures.append(str(e))
-            return batch_success, batch_failures, video_dir.name
 
-        futures = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for batch_dir in batch_dirs:
-                video_dirs = [d for d in batch_dir.iterdir() if d.is_dir() and not d.name == "maps"]
-                for video_dir in video_dirs:
-                    processed_videos += 1
-                    print(f"\n[{processed_videos}/{total_videos}] Submitting {video_dir.name} to thread pool")
-                    futures.append(executor.submit(index_video, video_dir))
+            total_docs += batch_success
+            total_failures.extend(batch_failures)
 
-            for future in concurrent.futures.as_completed(futures):
-                batch_success, batch_failures, video_name = future.result()
-                total_docs += batch_success
-                total_failures.extend(batch_failures)
+            # In gọn kết quả từng video
+            if batch_failures:
+                print(f"  -> Indexed: {batch_success}, Failures: {len(batch_failures)}")
+            else:
+                print(f"  -> Indexed: {batch_success}")
 
+        # Tổng kết
         print("\nIndexing Summary:")
-        print(f"Total videos processed: {processed_videos}/{total_videos}")
+        print(f"Total videos processed: {total_videos}/{total_videos}")
         print(f"Total frames indexed: {total_docs}")
         if total_failures:
             print(f"Total indexing failures: {len(total_failures)}")
@@ -158,6 +166,8 @@ class ElasticsearchClient:
                 print(f"  - {fail}")
             if len(total_failures) > 5:
                 print(f"  ... and {len(total_failures) - 5} more failures")
+        else:
+            print("No failures 🎉")
 
     def search(
         self,
@@ -277,14 +287,14 @@ class ElasticsearchClient:
             "query": {
                 "bool": {
                     "must": [
-                        {"term": {"video_id": video_id}},
-                        {"term": {"frame_id": frame_id}}
+                        {"match": {"video_id": video_id}},
+                        {"match": {"frame_id": frame_id}}
                     ]
                 }
             },
             "_source": ["ocr_text", "asr_text"]
         }
-
+        
         res = self.es.search(index=self.config.INDEX_NAME, body=query)
         hits = res.get("hits", {}).get("hits", [])
 
