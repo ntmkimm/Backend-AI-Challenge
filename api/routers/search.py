@@ -117,7 +117,7 @@ async def search_text(
         if page * page_size > TOP_K: return []
         queries = get_valid_queries(queries=queries)
         redis_key = redis_service.make_tmp_search_result_key(user_id, queries, mode="normal")
-        cached_bytes = await asyncio.to_thread(redis_service.redis_client.get, redis_key)
+        cached_bytes = await redis_service.redis_client.get(redis_key)
         if cached_bytes is not None:
             all_results = pickle.loads(cached_bytes)
         else:
@@ -220,7 +220,7 @@ async def chain_search_text(
         if page * page_size > TOP_K: return []
         queries = get_valid_queries(queries=queries)
         redis_key = redis_service.make_tmp_search_result_key(user_id, queries, mode="chain")
-        cached_bytes = await asyncio.to_thread(redis_service.redis_client.get, redis_key)
+        cached_bytes = await redis_service.redis_client.get(redis_key)
         if cached_bytes is not None:
             all_results = pickle.loads(cached_bytes)
         else:

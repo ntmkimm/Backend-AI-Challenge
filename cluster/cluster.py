@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # Set paths
 root_folder = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
-output_folder = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/group/batch1")
+output_folder = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/group/batch1_200gr")
 output_folder.mkdir(parents=True, exist_ok=True)
 
 # Load vectors
@@ -49,12 +49,12 @@ X = normalize(X)
 
 # Clustering with MiniBatchKMeans (no PCA)
 print("Clustering with MiniBatchKMeans...")
-n_clusters = 10000  # tune as needed
+n_clusters = 200  # tune as needed
 clusterer = MiniBatchKMeans(n_clusters=n_clusters, batch_size=10000, random_state=42, verbose=1)
 labels = clusterer.fit_predict(X)
 
 # Save labels
-np.save("cluster_labels.npy", labels)
+np.save("cluster_labels_200.npy", labels)
 print(f"Assigned {n_clusters} clusters using MiniBatchKMeans.")
 
 # Copy images into group folders

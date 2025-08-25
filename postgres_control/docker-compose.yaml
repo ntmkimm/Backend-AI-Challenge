@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - "5432:5432"  # Expose Postgres port
+    environment:
+      POSTGRES_USER: quannh
+      POSTGRES_PASSWORD: 1
+      POSTGRES_DB: keyframes_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # Persistent data
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8083:8080
+
+volumes:
+  pgdata:

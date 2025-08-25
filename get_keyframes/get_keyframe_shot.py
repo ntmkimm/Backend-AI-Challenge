@@ -13,7 +13,6 @@ import numpy as np
 from pathlib import Path
 from services.MetaCLIP.src.mini_clip.factory import create_model_and_transforms, get_tokenizer
 
-# 'L22_V004'
 MAX_FRAMES_PER_SHOT = 300
 # ---------------------
 # Utility functions
@@ -24,7 +23,7 @@ def read_shot_boundaries(scenes_file_path):
     with open(scenes_file_path, 'r') as f:
         for line in f:
             start_frame, end_frame = map(int, line.strip().split())
-            shots.append((start_frame + 5, end_frame))
+            shots.append((start_frame + 4, end_frame))
     return shots
 
 
@@ -43,21 +42,19 @@ def extract_features(frames, model, preprocess, device):
 
 
 def is_keyframe(curr_features, prev_features, curr_frame_id, prev_frame_id,
-                frame_distance_threshold, clip_threshold, proximity_threshold, proximity_clip_threshold):
+                frame_distance_threshold, clip_threshold, proximity_threshold=None, proximity_clip_threshold=None):
     if prev_features is None:
         return True
     clip_similarity = torch.sum(curr_features * prev_features) / (torch.norm(curr_features) * torch.norm(prev_features))
     frame_distance = curr_frame_id - prev_frame_id
     if frame_distance >= frame_distance_threshold:
         return True
-    elif frame_distance < proximity_threshold:
+    elif proximity_clip_threshold and proximity_threshold and frame_distance < proximity_threshold:
         return clip_similarity < proximity_clip_threshold
     else:
         return clip_similarity < clip_threshold
 
-
 save_lock = threading.Lock()
-
 
 def save_image(img, path, quality=80, resize_factor=0.5):
     try:
@@ -73,41 +70,9 @@ def save_image(img, path, quality=80, resize_factor=0.5):
         print(f"[save_image] Error saving image {path}: {e}")
 
 
-def load_ignore_features(ignore_folder, model, preprocess, device, batch_size=64):
-    """Encode all images in ignore_folder to a single (N, D) tensor of L2-normalized features on `device`."""
-    paths = []
-    for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp"):
-        paths.extend(sorted(Path(ignore_folder).glob(ext)))
-    if not paths:
-        print(f"[info] No images found in ignore folder: {ignore_folder}")
-        return None
-
-    feats = []
-    with torch.inference_mode():
-        for i in range(0, len(paths), batch_size):
-            batch_paths = paths[i:i+batch_size]
-            imgs = []
-            for p in batch_paths:
-                try:
-                    imgs.append(preprocess(Image.open(p).convert("RGB")))
-                except Exception as e:
-                    print(f"[warn] Failed to open {p}: {e}")
-            if not imgs:
-                continue
-            batch = torch.stack(imgs, 0).to(device)
-            f = model.encode_image(batch)
-            f = f / f.norm(dim=-1, keepdim=True).clamp_min(1e-12)  # L2-normalize
-            feats.append(f)
-    if not feats:
-        return None
-    feats = torch.cat(feats, 0).to(device)
-    print(f"[info] Loaded {feats.size(0)} ignore features from {ignore_folder}")
-    return feats
-
-
 def process_video(video_path, scenes_file_path, output_folder,
                   clip_threshold, frame_distance_threshold, proximity_threshold, proximity_clip_threshold,
-                  batch_size, sample_rate, skip_frames, device_id, ignore_feats=None):
+                  batch_size, sample_rate, skip_frames, device_id):
 
     os.makedirs(output_folder, exist_ok=True)
     keyframes_folder = os.path.join(output_folder, "keyframes")
@@ -129,16 +94,7 @@ def process_video(video_path, scenes_file_path, output_folder,
 
     pbar = tqdm(total=total_frames_to_process, desc=f"[GPU {device_id}] Processing {os.path.basename(video_path)}")
 
-    all_keyframes = []
-    SIM_SKIP_THRESHOLD = 0.8  # skip threshold
-
-    def filter_by_ignore(features_batch_normed):
-        if ignore_feats is None or features_batch_normed.numel() == 0:
-            return torch.ones(features_batch_normed.size(0), dtype=torch.bool, device=features_batch_normed.device)
-        sims = features_batch_normed @ ignore_feats.T
-        max_sim, _ = sims.max(dim=1)
-        keep = max_sim <= SIM_SKIP_THRESHOLD
-        return keep
+    all_keyframes = 0
 
     for start_frame, end_frame in shot_boundaries:
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
@@ -171,16 +127,6 @@ def process_video(video_path, scenes_file_path, output_folder,
                     features_batch = extract_features(frames, model, preprocess, device)
                     features_batch = features_batch / features_batch.norm(dim=-1, keepdim=True).clamp_min(1e-12)
 
-                    keep_mask = filter_by_ignore(features_batch)
-                    if keep_mask.sum().item() == 0:
-                        frames, frame_indices = [], []
-                        pbar.update(batch_size)
-                        continue
-
-                    frames = [f for f, k in zip(frames, keep_mask.tolist()) if k]
-                    frame_indices = [fi for fi, k in zip(frame_indices, keep_mask.tolist()) if k]
-                    features_batch = features_batch[keep_mask]
-
                     # === save loop with quota ===
                     for i, (frame_in_batch, feature) in enumerate(zip(frames, features_batch)):
                         if shot_quota_reached:
@@ -197,6 +143,8 @@ def process_video(video_path, scenes_file_path, output_folder,
                             prev_features = feature
                             prev_keyframe_id = frame_id
 
+                            all_keyframes += 1
+                            
                             # --- add: increment and check quota ---
                             shot_kept += 1
                             if shot_kept >= MAX_FRAMES_PER_SHOT:
@@ -214,32 +162,30 @@ def process_video(video_path, scenes_file_path, output_folder,
         if frames and not shot_quota_reached:
             features_batch = extract_features(frames, model, preprocess, device)
             features_batch = features_batch / features_batch.norm(dim=-1, keepdim=True).clamp_min(1e-12)
-            keep_mask = filter_by_ignore(features_batch)
-            if keep_mask.sum().item() != 0:
-                frames = [f for f, k in zip(frames, keep_mask.tolist()) if k]
-                frame_indices = [fi for fi, k in zip(frame_indices, keep_mask.tolist()) if k]
-                features_batch = features_batch[keep_mask]
 
-                for i, (frame_in_batch, feature) in enumerate(zip(frames, features_batch)):
-                    if shot_quota_reached:
+            for i, (frame_in_batch, feature) in enumerate(zip(frames, features_batch)):
+                if shot_quota_reached:
+                    break
+                frame_id = frame_indices[i]
+                if is_keyframe(feature, prev_features, frame_id, prev_keyframe_id,
+                            frame_distance_threshold, clip_threshold,
+                            proximity_threshold, proximity_clip_threshold):
+                    save_image(frame_in_batch, os.path.join(keyframes_folder, f"keyframe_{frame_id}.webp"),
+                            quality=80, resize_factor=0.5)
+                    np.savez_compressed(os.path.join(vector_folder, f"keyframe_{frame_id}.npz"),
+                                        feature=feature.cpu().numpy())
+                    
+                    all_keyframes += 1
+                    
+                    prev_features = feature
+                    prev_keyframe_id = frame_id
+
+                    # --- add: increment and check quota ---
+                    shot_kept += 1
+                    if shot_kept >= MAX_FRAMES_PER_SHOT:
+                        shot_quota_reached = True
                         break
-                    frame_id = frame_indices[i]
-                    if is_keyframe(feature, prev_features, frame_id, prev_keyframe_id,
-                                frame_distance_threshold, clip_threshold,
-                                proximity_threshold, proximity_clip_threshold):
-                        save_image(frame_in_batch, os.path.join(keyframes_folder, f"keyframe_{frame_id}.webp"),
-                                quality=80, resize_factor=0.5)
-                        np.savez_compressed(os.path.join(vector_folder, f"keyframe_{frame_id}.npz"),
-                                            feature=feature.cpu().numpy())
-                        prev_features = feature
-                        prev_keyframe_id = frame_id
-
-                        # --- add: increment and check quota ---
-                        shot_kept += 1
-                        if shot_kept >= MAX_FRAMES_PER_SHOT:
-                            shot_quota_reached = True
-                            break
-                        # -------------------------------------
+                    # -------------------------------------
     cap.release()
     pbar.close()
 
@@ -253,7 +199,7 @@ def process_video(video_path, scenes_file_path, output_folder,
 
 def process_all_videos_worker(video_queue, shot_folder, output_base_folder, clip_threshold,
                               frame_distance_threshold, proximity_threshold, proximity_clip_threshold,
-                              batch_size, sample_rate, skip_frames, device_id, ignore_folder):
+                              batch_size, sample_rate, skip_frames, device_id):
 
     device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
     torch.cuda.set_device(device_id)
@@ -261,7 +207,7 @@ def process_all_videos_worker(video_queue, shot_folder, output_base_folder, clip
     model_tmp, _, preprocess_tmp = open_clip.create_model_and_transforms('ViT-H-14-378-quickgelu', pretrained='dfn5b')
     # model_tmp, _, preprocess_tmp = create_model_and_transforms('ViT-H-14-quickgelu-worldwide@WorldWideCLIP', pretrained='metaclip2_worldwide')
     model_tmp = model_tmp.to(device).eval()
-    ignore_feats = load_ignore_features(ignore_folder, model_tmp, preprocess_tmp, device, batch_size=64)
+    
     del model_tmp
     torch.cuda.empty_cache()
 
@@ -272,71 +218,92 @@ def process_all_videos_worker(video_queue, shot_folder, output_base_folder, clip
             break
 
         video_name = os.path.splitext(os.path.basename(video_path))[0]
-        # if video_name >= 'L22_V016': continue
-        if video_name < 'L26_V024' or video_name > 'L26_V336': continue
-        # if video_name > 'L30_V056': continue
         scenes_file_path = os.path.join(shot_folder, f"{video_name}.scenes.txt")
-        # print(scenes_file_path)
         if not os.path.exists(scenes_file_path):
             print(f"[GPU {device_id}] Scenes file not found for {video_name}, skipping.")
+            with open("not_exist_scene.txt", "a") as f:
+                f.write(video_name + "\n")
             continue
 
         output_folder = os.path.join(output_base_folder, video_name)
 
         print(f"[GPU {device_id}] Starting video: {video_name}")
         try:
-            keyframes = process_video(video_path, scenes_file_path, output_folder,
+            number_of_keyframes = process_video(video_path, scenes_file_path, output_folder,
                                       clip_threshold, frame_distance_threshold,
                                       proximity_threshold, proximity_clip_threshold,
-                                      batch_size, sample_rate, skip_frames, device_id, ignore_feats)
-            print(f"[GPU {device_id}] Finished video: {video_name}, keyframes: {len(keyframes)}")
+                                      batch_size, sample_rate, skip_frames, device_id)
+            print(f"[GPU {device_id}] Finished video: {video_name}, keyframes: {number_of_keyframes}")
         except Exception as e:
             print(f"[GPU {device_id}] Error processing {video_name}: {str(e)}")
+            
+def check_video_process_all_frame_ids(video_name: str, input_folder: Path, output_base_folder: Path):
+    video_path = input_folder / (video_name + ".mp4")
+    if not (output_base_folder / video_name / "keyframes").exists():
+        return False
+    keyframe_paths = (output_base_folder / video_name / "keyframes").glob("*.webp")
+    if not keyframe_paths:
+        return False
+    last_frame_id = 0 
+    for _keyframe in tqdm(keyframe_paths): 
+        last_frame_id = max(last_frame_id, int(_keyframe.stem[9:]))
+    
+    cap = cv2.VideoCapture(str(video_path))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    if total_frames - last_frame_id > 25 * 60:
+        print("problem: ", video_name, " distant ", total_frames - last_frame_id)
+        return False
+    return True
 
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
 
-    input_folder = '/mlcv2/Datasets/HCMAI25/batch1/video'
-    shot_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/shot_batch1'
-    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1'
-    ignore_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/keyframes_should_ignore'
-
+    input_folder = '/mlcv2/Datasets/HCMAI25/batch2/video'
+    shot_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/shot_batch2'
+    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch2'
+    
     video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
     num_gpus = torch.cuda.device_count()
-
-    # clip_threshold = 0.8
-    # frame_distance_threshold = 3000
-    # proximity_threshold = 15
-    # proximity_clip_threshold = 0.6
-    # batch_size = 8
-    # sample_rate = 25
-    # skip_frames = 7
     
-    # clip_threshold = 0.85
-    # frame_distance_threshold = 25 * 12
+    # clip_threshold = 0.96
+    # frame_distance_threshold = 75
     # proximity_threshold = 15
-    # proximity_clip_threshold = 0.75
-    # batch_size = 8
+    # proximity_clip_threshold = 0.80
+    # batch_size = 4
     # sample_rate = 25
     # skip_frames = 5
     
     clip_threshold = 0.96
-    frame_distance_threshold = 75
-    proximity_threshold = 15
-    proximity_clip_threshold = 0.80
-    batch_size = 4
+    frame_distance_threshold = 60
+    proximity_threshold = None
+    proximity_clip_threshold = None
+    batch_size = 16
     sample_rate = 25
-    skip_frames = 5
+    skip_frames = 4
 
-
-    flag = False
     video_queue = mp.Queue()
     
-    video_files = video_files[::-1]
+    # SET UP VIDEO INTERNAL
+    # internal: [start_video, end_video)
+    # output_base_folder += '_skip=' + str(skip_frames) + "_" + str(clip_threshold) + "_" + str(frame_distance_threshold)
+    print("output folder: ", output_base_folder)
+    start_video = 'K01_V001' # include this video
+    end_video = 'K31_V001' # exclude this video
+    print("start video", start_video)
+    print("end video", end_video)
+    # video_files = video_files[::-1]
+    # print('reverse')
+    iii = input("Checking your output folder, type [y/n]")
+    if iii != 'y': 
+        exit()
+    
     for vf in video_files:
-        video_queue.put(vf)
-    # print("reverse")
+        video_name = os.path.splitext(os.path.basename(vf))[0]
+        if (start_video <= video_name and video_name < end_video): 
+            if not check_video_process_all_frame_ids(video_name=video_name, input_folder=Path(input_folder), output_base_folder=Path(output_base_folder)):
+                video_queue.put(vf)
     
     processes = []
     for device_id in range(num_gpus):
@@ -344,7 +311,7 @@ if __name__ == "__main__":
             video_queue, shot_folder, output_base_folder,
             clip_threshold, frame_distance_threshold,
             proximity_threshold, proximity_clip_threshold,
-            batch_size, sample_rate, skip_frames, device_id, ignore_folder))
+            batch_size, sample_rate, skip_frames, device_id))
         p.start()
         processes.append(p)
 

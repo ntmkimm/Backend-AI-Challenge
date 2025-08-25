@@ -3,8 +3,9 @@ from services.milvus_service import MilvusService
 from services.polar_service import PolarService
 from services.beit3_service import BEiT3Service
 from services.paraphrase_service import ParaphraseService
-from config.settings import OPENCLIP_BATCH1, BEIT3_BATCH1
+from config.settings import OPENCLIP_BATCH1, BEIT3_BATCH1, DEVICE_0, DEVICE_1
 import threading
+import asyncio
 
 class ServiceManager:
     def __init__(self):
@@ -22,6 +23,7 @@ class ServiceManager:
         self.milvus_openclip_batch1 = None
         
         self.lock = threading.Lock()  # Lock to handle concurrent initialization
+        self.async_lock = asyncio.Lock()
 
     def get_clip_service(self, device):
         if self.clip_service is None:
@@ -38,16 +40,17 @@ class ServiceManager:
         return self.milvus_services[collection_name]
     
     def get_milvus_services(self) -> dict:
-        self.get_milvus_service_with_collection(collection_name=OPENCLIP_BATCH1)
-        self.get_milvus_service_with_collection(collection_name=BEIT3_BATCH1)
+        # self.get_milvus_service_with_collection(collection_name=OPENCLIP_BATCH1)
+        # self.get_milvus_service_with_collection(collection_name=BEIT3_BATCH1)
         return self.milvus_services
 
-    def get_redis_service(self):
+    async def get_redis_service(self):
         from services.redis_service import RedisService
         if self.redis_service is None:
-            with self.lock:
+            async with self.async_lock:
                 if self.redis_service is None:
-                    self.redis_service = RedisService()
+                    instance = RedisService()
+                    self.redis_service = await instance.async_init()
         return self.redis_service
 
     def get_polar_service(self):
@@ -76,7 +79,7 @@ service_manager = ServiceManager()
 
 # Replace original get_* functions with the methods from ServiceManager
 def get_clip_service():
-    return service_manager.get_clip_service()
+    return service_manager.get_clip_service(device=DEVICE_0)
 
 def get_milvus_service_with_collection(collection_name):
     return service_manager.get_milvus_service_with_collection(collection_name=collection_name)
@@ -84,8 +87,8 @@ def get_milvus_service_with_collection(collection_name):
 def get_mivus_services():
     return service_manager.get_milvus_services()
 
-def get_redis_service():
-    return service_manager.get_redis_service()
+async def get_redis_service():
+    return await service_manager.get_redis_service()
 
 def get_polar_service():
     return service_manager.get_polar_service()
@@ -94,4 +97,4 @@ def get_paraphrase_service():
     return service_manager.get_paraphrase_service()
 
 def get_beit3_service():
-    return service_manager.get_beit3_service()
+    return service_manager.get_beit3_service(device=DEVICE_1)

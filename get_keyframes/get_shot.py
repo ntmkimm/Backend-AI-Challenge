@@ -403,6 +403,10 @@ def main():
                         help="Video file extensions to process (default: .mp4)")
     parser.add_argument("--skip-existing", action="store_true", default=True,
                         help="Skip videos that have already been processed")
+    
+    parser.add_argument("--reverse", action="store_true", default=False,
+                        help="Skip videos that have already been processed")
+    
     parser.add_argument("--no-skip-existing", action="store_false", dest="skip_existing",
                         help="Process all videos, even if already processed")
     parser.add_argument("--recursive", action="store_true",
@@ -452,6 +456,10 @@ def main():
             return
         
         print(f"[FOUND] {len(video_files)} video file(s)")
+        
+        if args.reverse:
+            print("Running reverse")
+            video_files = video_files[::-1]
         
         # Setup output folder if specified
         if args.output:

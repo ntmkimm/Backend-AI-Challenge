@@ -7,6 +7,25 @@ map_folder = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallen
 
 problem_videos = []
 
+def check_video_process_all_frame_ids(video_path: Path, input_folder: Path, output_base_folder: Path):
+    video_name = video_path.stem 
+    if not (output_base_folder / video_name / "keyframes").exists():
+        return False
+    keyframe_paths = (output_base_folder / video_name / "keyframes").glob("*.webp")
+    if not keyframe_paths:
+        return False
+    last_frame_id = 0 
+    for _keyframe in tqdm(keyframe_paths): 
+        last_frame_id = max(last_frame_id, int(_keyframe.stem[9:]))
+    
+    cap = cv2.VideoCapture(str(_video_path))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    if total_frames - last_frame_id > 25 * 60:
+        print("problem: ", video_name, " distant ", total_frames - last_frame_id)
+        return False
+    return True
+
 for _video_path in tqdm(sorted(root_videos.glob("*.mp4"))[::-1]):
     video_name = _video_path.stem
     if not (video_name == 'L26_V336' or video_name == 'L26_V074'): continue
