@@ -20,7 +20,7 @@ cur.execute("""
 CREATE TABLE IF NOT EXISTS cluster (
     id SERIAL PRIMARY KEY,
     video_id TEXT NOT NULL,
-    frame_id TEXT NOT NULL,
+    frame_id INT NOT NULL,
     label INT NOT NULL,
     UNIQUE(video_id, frame_id)
 )

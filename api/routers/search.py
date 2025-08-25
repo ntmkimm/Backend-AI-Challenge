@@ -26,7 +26,7 @@ async def get_information(
     polar_service: PolarService = Depends(get_polar_service),
 ):
     try:
-        frame_id = str(frame_id)
+        frame_id = int(frame_id)
         es_data = await asyncio.to_thread(
             get_text_by_frame, video_id=video_id, frame_id=frame_id
         )
@@ -68,18 +68,6 @@ async def get_stage(
             raise HTTPException(status_code=400, detail="stage_number out of range")
         queries = get_valid_queries(queries)  
         query = queries[stage_number - 1] # # Chọn đúng stage cần search
-        
-        # Run background tasks for the other stages
-        async def process_other_stages():
-            tasks = []
-            
-            all_answers = await redis_service.get_all_answers_cached_redis(
-                queries=queries,
-                ttl_seconds=TIME_CACHE_ONE_QUERY 
-            )
-
-        # Start background tasks for the other stages
-        asyncio.create_task(process_other_stages())
         
         results = await redis_service.get_one_answer_cached_redis(
             query=query,

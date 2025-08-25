@@ -47,7 +47,7 @@ class ElasticsearchConfig:
             "mappings": {
                 "properties": {
                     "video_id": {"type": "keyword"},
-                    "frame_id": {"type": "keyword"},
+                    "frame_id": {"type": "integer"},
                     "ocr_text": {
                         "type": "text",
                         "analyzer": "vietnamese",
@@ -67,3 +67,5 @@ class ElasticsearchConfig:
                 }
             }
         } 
+        
+        # export PATH="/usr/local/bin/ffmpeg-7.0.2-amd64-static:$PATH"

@@ -44,7 +44,7 @@ try:
             for _id, _keyframe in tqdm(enumerate(keyframe_files), desc="Inserting into DB", total=len(keyframe_files)):
                 _label = int(labels[_id])
                 _video_id = _keyframe.parent.parent.stem
-                _frame_id = _keyframe.stem[9:]
+                _frame_id =int(_keyframe.stem[9:])
 
                 try:
                     cur.execute("""

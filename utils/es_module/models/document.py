@@ -7,12 +7,12 @@ import json
 class Document:
     """Represents an document in Elasticsearch"""
     video_id: str
-    frame_id: str
+    frame_id: int
     ocr_text: str
     asr_text: str
     
     @classmethod
-    def from_file(cls, video_dir: str, frame_id: str, ocr_text: str=None, asr_text: str=None):
+    def from_file(cls, video_dir: str, frame_id: int, ocr_text: str=None, asr_text: str=None):
         # video_id logic as before
         return cls(video_dir, frame_id, ocr_text, asr_text)
 

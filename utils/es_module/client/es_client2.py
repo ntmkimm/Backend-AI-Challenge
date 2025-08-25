@@ -77,7 +77,7 @@ class ElasticsearchClient:
                     error_frames['empty_text'].append(frame_id)
                     continue
 
-                doc = Document.from_file(video_dir.stem, frame_id, ocr_text, asr_text)
+                doc = Document.from_file(video_dir.stem, int(frame_id), ocr_text, asr_text)
                 yield doc.to_index_doc(self.config.INDEX_NAME)
                 frame_count += 1
             except Exception as e:
@@ -272,7 +272,7 @@ class ElasticsearchClient:
         results.sort(key=lambda x: x.score, reverse=True)
         return results[:size]
     
-    def get_text_by_frame(self, video_id: str, frame_id: str) -> Optional[Dict[str, str]]:
+    def get_text_by_frame(self, video_id: str, frame_id: int) -> Optional[Dict[str, str]]:
         """
         Retrieve OCR and ASR text for a specific video_id and frame_id.
 

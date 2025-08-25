@@ -27,7 +27,7 @@ class Service:
             
         self.client.index_dataset(path)
         
-    def get_text_by_frame(self, video_id: str, frame_id: str)-> Optional[Dict[str, str]]:
+    def get_text_by_frame(self, video_id: str, frame_id: int)-> Optional[Dict[str, str]]:
         if not self.client.check_connection():
             raise ConnectionError("Could not connect to Elasticsearch")
         return self.client.get_text_by_frame(video_id=video_id, frame_id=frame_id)

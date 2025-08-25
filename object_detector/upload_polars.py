@@ -30,7 +30,7 @@ for _vid in sorted(JSON_ROOT.iterdir()):
                 objects[i].append(c)
             paths.append(path)
             video_ids.append(video_id)
-            frame_ids.append(frame_id)
+            frame_ids.append(int(frame_id))
             
 data = {}
 # data["filepath"] = paths
