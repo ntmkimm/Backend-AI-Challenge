@@ -48,16 +48,15 @@ async def search_by_image(
 
     return results
 
-async def filter_by_dislike_labels(
-    results: Dict,
+async def search_by_dislike_labels(
     labels: List[int],
 ) -> Dict:
     """
     Given results [{'video_id': str, 'frame_id': int, 'score': float}, ...]
     keep only those with cluster.label in labels.
     """
-    if not results or not labels:
-        return results
+    if not labels:
+        return {}
 
     # Extract (video_id, frame_id) pairs
     t0 = time.time()  
@@ -74,15 +73,13 @@ async def filter_by_dislike_labels(
             (labels,)
         )
         rows = cur.fetchall()
-        matched_pairs = {(vid, fid) for vid, fid in rows}
+        matched_pairs = {f"{vid}_{fid}" for vid, fid in rows}
     finally:
         cur.close()
         release_connection(conn)
     print("time for query postgres: ", time.time() - t0)
     # Keep only results present in allowed set
-    results = {k: v for k, v in results.items() if (v["video_id"], v["frame_id"]) not in matched_pairs}
-    print("time for filter dislike labels: ", time.time() - t0)
-    return results
+    return matched_pairs
 
 async def get_dislike_label_by_frame(
     video_id: str,
@@ -113,13 +110,12 @@ async def search_one_query(
 ):
     polar_service = service_manager.get_polar_service()
     milvus_services = service_manager.get_milvus_services()
-    clip_service = service_manager.get_clip_service(device=DEVICE_0)
+    # clip_service = service_manager.get_clip_service(device=DEVICE_0)
     beit3_service = None
-    # clip_service = None
+    clip_service = None
     # beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
     
-    start_time = time.time()
-    buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None}
+    buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None, 'dislike_labels': None}
     
     if beit3_service and clip_service:
         weighted_score = { 'clip': 0.3, 'beit3': 0.2, 'ocr': 0.5, 'asr': 0.35, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
@@ -133,8 +129,13 @@ async def search_one_query(
     
     if q.text:
         texts = q.text.split(" ")
-        tasks.append(get_dislike_label_by_frame(texts[0], texts[1]))
-        # tasks.append(search_by_text(beit3_service, milvus_services[BEIT3_BATCH1], q.text))
+        label = await get_dislike_label_by_frame(texts[0], texts[1])
+        dislike_labels = [label]
+    
+    start_time = time.time()
+    
+    if q.text:
+        tasks.append(search_by_text(beit3_service, milvus_services[BEIT3_BATCH1], q.text))
         tasks.append(search_by_text(clip_service, milvus_services[OPENCLIP_BATCH1], q.text))
     else:
         tasks.append(asyncio.sleep(0, result=None))
@@ -174,24 +175,28 @@ async def search_one_query(
         tasks.append(polar_service.search_object(q.obj))
     else:
         tasks.append(asyncio.sleep(0, result=None))
+    
+    if dislike_labels:
+        tasks.append(search_by_dislike_labels(labels=dislike_labels))
+    else:
+        tasks.append(asyncio.sleep(0, result=None))
 
     # Chạy song song tất cả các task
     results = await asyncio.gather(*tasks)
 
-    buffer['beit_1'], buffer['openclip_1'], buffer['image'], buffer['ocr'], buffer['asr'], buffer['obj'] = results
+    buffer['beit_1'], buffer['openclip_1'], buffer['image'], buffer['ocr'], buffer['asr'], buffer['obj'], buffer['dislike_labels'] = results
 
     combined_results = defaultdict(lambda: {'score': 0.0, 'video_id': None, 'frame_id': None })
 
     # Xử lý kết quả từ buffer
     if buffer['beit_1']:
-        # for h in buffer['beit_1']:
-        #     video_id = h.entity["video_id"]
-        #     frame_id = h.entity["frame_id"]
-        #     score = h.distance
-        #     key = f"{video_id}_{frame_id}"
-        #     combined_results[key].update({'video_id': video_id, 'frame_id': frame_id})
-        #     combined_results[key]['score'] += weighted_score['beit3'] * score
-        dislike_labels = [buffer['beit_1']]
+        for h in buffer['beit_1']:
+            video_id = h.entity["video_id"]
+            frame_id = h.entity["frame_id"]
+            score = h.distance
+            key = f"{video_id}_{frame_id}"
+            combined_results[key].update({'video_id': video_id, 'frame_id': frame_id})
+            combined_results[key]['score'] += weighted_score['beit3'] * score
 
     if buffer['openclip_1']:
         for h in buffer['openclip_1']:
@@ -222,6 +227,9 @@ async def search_one_query(
             key = f"{video_id}_{frame_id}"
             combined_results[key].update({'video_id': video_id, 'frame_id': frame_id })
             combined_results[key]['score'] += weighted_score['asr'] * score
+    
+    if buffer['dislike_labels']:
+        combined_results = {k: v for k, v in combined_results.items() if k not in buffer['dislike_labels']}
 
     obj_keys = {
         f"{row['video_id']}_{row['frame_id']}"
@@ -239,10 +247,10 @@ async def search_one_query(
             combined_results[key] = {
                 'video_id': row['video_id'],
                 'frame_id': row['frame_id'],
-                'score': weighted_score['obj'] * 1.0
+                'score': weighted_score['obj']
             }
             
-    combined_results = await filter_by_dislike_labels(results=combined_results, labels=dislike_labels)
+    
     combined_results = sorted(combined_results.values(), key=lambda x: x['score'], reverse=True)[:TOP_K]
     end_time = time.time()
     print("Total time for search: ", end_time - start_time)
