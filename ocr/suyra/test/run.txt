@@ -1,0 +1,4 @@
+surya_ocr /mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/suyra/test/keyframe_19974.webp \
+--task_name ocr_with_boxes \
+--images \
+--output_dir /mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/suyra/test

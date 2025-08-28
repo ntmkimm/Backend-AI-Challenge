@@ -1,12 +1,12 @@
 from pathlib import Path
 
-ROOT = Path('/mlcv2/Datasets/HCMAI24/updated/videos/batch1')
+ROOT = Path('/mlcv2/Datasets/HCMAI25/batch2/video/')
 
 print(len(list(ROOT.glob("*.mp4"))))
 
 # 363
 
-OUT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1")
+OUT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch2")
 print(len(list(OUT.iterdir()))) 
 
 

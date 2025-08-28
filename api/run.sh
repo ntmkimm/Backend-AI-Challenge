@@ -1,6 +1,6 @@
 #!/bin/bash 
 #* shebang
-MIN_MEMORY=6000
+MIN_MEMORY=000
 
 check_gpu_memory() {
     nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | while IFS=',' read -r index memory; do
@@ -20,7 +20,7 @@ run_uvicorn() {
         echo "Starting uvicorn server..."
         uvicorn app:app --reload --port 5731 --host=0.0.0.0 --lifespan=auto --workers 1 \
             --limit-concurrency 1000 --backlog 2048 --http httptools --timeout-keep-alive 1000 \
-            --reload-exclude 'dependencies/*' --reload-exclude 'services/*' --reload-exclude 'core/*' --reload-exclude 'config/*'
+            # --reload-exclude 'dependencies/*' --reload-exclude 'services/*' --reload-exclude 'core/*' --reload-exclude 'config/*'
         echo "Server crashed or exited. Restarting in 2s..."
         sleep 2
     done
@@ -39,7 +39,7 @@ while true; do
             # if { [ "$index" = "6" ] || [ "$index" = "7" ]; } && [ "$memory" -ge "$MIN_MEMORY" ]; then
             if { [ "$index" = "6" ]; } && [ "$memory" -ge "$MIN_MEMORY" ]; then
                 # available_gpu="$index"
-                available_gpu="6,7"
+                available_gpu="6"
                 break  # Chỉ lấy GPU 6 hoặc 7 có đủ bộ nhớ
             fi
         fi

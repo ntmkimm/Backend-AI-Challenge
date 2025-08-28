@@ -216,7 +216,9 @@ def process_all_videos_worker(video_queue, shot_folder, output_base_folder, clip
             continue
 
         output_folder = os.path.join(output_base_folder, video_name)
-
+        if (Path(output_folder).exists()): 
+            print(f"{output_folder} is already exists")
+            continue
         print(f"[GPU {device_id}] Starting video: {video_name}")
         try:
             number_of_keyframes = process_video(video_path, scenes_file_path, output_folder,
@@ -321,7 +323,7 @@ if __name__ == "__main__":
     # output_base_folder += '_skip=' + str(skip_frames) + "_" + str(clip_threshold) + "_" + str(frame_distance_threshold)
     print("output folder: ", output_base_folder)
     start_video = 'K01_V001' # include this video
-    end_video = 'K31_V001' # exclude this video
+    end_video = 'K10_V001' # exclude this video
     print("start video", start_video)
     print("end video", end_video)
     video_files = video_files[::-1]

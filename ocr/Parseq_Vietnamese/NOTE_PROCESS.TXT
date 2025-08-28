@@ -1,0 +1,13 @@
+
+screen ntmk6 
+forward all except videos in ntmk5
+
+screen algo
+reverse all except videos in ntmk5
+
+screen ntmk5
+start_video2 = 'L26_V001' # include this video
+end_video2 = 'L26_V337' # not include this video
+
+start_video1 = 'L28_V009' # include this video
+end_video1 = 'L29_V001' # not include this video

@@ -173,7 +173,9 @@ def process_all_videos_worker(video_queue, output_base_folder, clip_threshold,
         # --- SCENES FILE LOGIC REMOVED ---
 
         output_folder = os.path.join(output_base_folder, video_name)
-        if (Path(output_folder).exists()): continue
+        if (Path(output_folder).exists()): 
+            print(f"{output_folder} is already exists")
+            continue
 
         print(f"[GPU {device_id}] Starting video: {video_name}")
         try:
@@ -279,12 +281,12 @@ if __name__ == "__main__":
     # internal: [start_video, end_video)
     # output_base_folder += '_skip=' + str(skip_frames) + "_" + str(clip_threshold) + "_" + str(frame_distance_threshold)
     print("output folder: ", output_base_folder)
-    start_video = 'K01_V001' # include this video
+    start_video = 'K14_V001' # include this video
     end_video = 'K31_V001' # exclude this video
     print("start video", start_video)
     print("end video", end_video)
     # video_files = video_files[::-1]
-    # print('reverse')
+    # print('reverse')q
     iii = input("Checking your output folder, type [y/n]")
     if iii != 'y': 
         exit()

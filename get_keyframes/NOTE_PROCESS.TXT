@@ -1,0 +1,30 @@
+gpu 6:
+screen ntmk2: batch 8
+
+start video K14_V001
+end video K31_V001
+
+k15_v015
+
+screen ntmk4: batch 8 
+
+start video K11_V001
+end video K31_V001
+
+k13_v028
+
+gpu7:
+screen ntmk3: STOP
+get shot 
+
+screen ntmk5 
+forward 
+get key frame no transnet batch 8
+
+k15_v019
+
+screen ntmk6 
+reverse 
+get keyframe no transnet batch 8
+
+k17_v004
