@@ -9,8 +9,8 @@ import os
 from typing import List, Optional
 
 # ---------- Config ----------
-DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch2")
-ROOT = Path("/mlcv2/Datasets/HCMAI25/batch2/video")
+DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
+ROOT = Path("/mlcv2/Datasets/HCMAI25/batch1/video")
 
 # Segmenting / batching params
 STEP = 3                   # number of keyframes per audio chunk
