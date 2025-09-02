@@ -42,11 +42,11 @@ def get_parser():
         metavar="FILE",
         help="path to config file",
     )
-    parser.add_argument("--root-videos", default='/mlcv2/Datasets/HCMAI25/batch1/video')
-    parser.add_argument("--map-folder", default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1')
+    parser.add_argument("--root-videos", default='/mlcv2/Datasets/HCMAI25/batch2/video')
+    parser.add_argument("--map-folder", default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch2')
     parser.add_argument(
         "--output",
-        default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/batch1_2025',
+        default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/batch2_2025',
         help="A file or directory to save output json files."
     )
 
@@ -63,14 +63,7 @@ def get_parser():
         nargs=argparse.REMAINDER,
     )
     
-    parser.add_argument(
-        "--start-video",
-        help="start video to process (include)",
-    )
-    parser.add_argument(
-        "--end-video",
-        help="end video to process (exclude)",
-    )
+    
     return parser
     
 if __name__ == "__main__":
@@ -89,26 +82,19 @@ if __name__ == "__main__":
     
     # --> internal = [start_video, end_video)
     
-    start_video = args.start_video
-    end_video = args.end_video
     
-    # start_video = 'K02_V001' # include this video
-    # end_video = 'K03_V001' # not include this video
+    start_video = 'K01_V001' # include this video
+    end_video = 'K21_V001' # not include this video
     
-    # start_video = 'K03_V001' # include this video
-    # end_video = 'K04_V001' # not include this video
-    
-    # start_video = 'K04_V001' # include this video
-    # end_video = 'K05_V001' # not include this video
-    
-    # start_video = 'K06_V001' # include this video
-    # end_video = 'K07_V001' # not include this video
-    
-    # start_video = 'K08_V001' # include this video
-    # end_video = 'K09_V001' # not include this video
+    # start_video = 'K05_V001' # include this video
+    # end_video = 'K10_V001' # not include this video
     
     # start_video = 'K10_V001' # include this video
-    # end_video = 'K11_V001' # not include this video
+    # end_video = 'K15_V001' # not include this video
+    
+    # start_video = 'K15_V001' # include this video
+    # end_video = 'K21_V001' # not include this video
+
     
     
     print("start_video: ", start_video)

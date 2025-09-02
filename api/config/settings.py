@@ -18,13 +18,13 @@ MILVUS_PORT = "19530"
 CLIP_MODEL = "openclip"
 
 # COLLECTION MILVUS
-OPENCLIP_BATCH1 = "AIC25_batch1_openclip"
-BEIT3_BATCH1 = "AIC25_batch1_beit3"
+OPENCLIP_MILVUS = "AIC25_openclip"
+BEIT3_MILVUS = "AIC25_beit3"
 
 DEVICE_0 = "cuda:0" 
 DEVICE_1 = "cuda:1"
 
-OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1/objects.parquet"
+OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge/objects.parquet"
 
 PARAPHRASE_MODEL = "humarin/chatgpt_paraphraser_on_T5_base"
 
@@ -35,11 +35,11 @@ REDIS_PORT = 6379
 # Search Settings
 TOP_K = 1000
 MIN_FRAME_GAP = 50
-MAX_FRAME_GAP = 750
+MAX_FRAME_GAP = 750 * 4
 BATCH_SIZE = 128
 
-TIME_CACHE_ONE_QUERY = 90
-TIME_CACHE_QUERIES = 90
+TIME_CACHE_ONE_QUERY = 75
+TIME_CACHE_QUERIES = 75
 
 # Media Server
 # MEDIA_SERVER_URL = "http://192.168.20.156:9000/aic2025"

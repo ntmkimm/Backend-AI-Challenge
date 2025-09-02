@@ -9,13 +9,13 @@ import os
 from typing import List, Optional
 
 # ---------- Config ----------
-DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
-ROOT = Path("/mlcv2/Datasets/HCMAI25/batch1/video")
+DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
+ROOT = Path("/mlcv2/Datasets/HCMAI25/batch2/video")
 
 # Segmenting / batching params
-STEP = 3                   # number of keyframes per audio chunk
+STEP = 3 + 2                  # number of keyframes per audio chunk
 OVERLAP_SECONDS = 1.0      # left overlap to avoid cutting words
-ASR_BATCH_SIZE = 16         # PhoWhisper pipeline batch size
+ASR_BATCH_SIZE = 24        # PhoWhisper pipeline batch size
 FFMPEG_AUDIO_RATE = 16000  # Hz
 
 # ---------- Helpers ----------
@@ -85,18 +85,40 @@ transcriber = pipeline(
 )
 
 # ---------- Main ----------
-video_files = sorted(ROOT.glob("*.mp4"))
-# print("forward")
-print("reverse")
-video_files = video_files[::-1]
+# start_video = 'K01_V001' # include this video
+# end_video = 'K10_V001' # not include this video
+
+start_video = 'K10_V001' # include this video
+end_video = 'K21_V001' # not include this video
+
+print("start_video: ", start_video)
+print("end_video: ", end_video)
+
+video_files = []
+for _video_path in sorted(ROOT.glob("*.mp4")):
+    video_name = _video_path.stem
+    if not (start_video <= video_name < end_video):
+        continue
+    video_files.append(_video_path)
 
 for _vid in tqdm(video_files):
     video_id = _vid.stem
     video_dir = DATASET / video_id / "keyframes"
     output_path = DATASET / video_id / "asr.json"
+    
     if (output_path.exists()):
-        print(video_id, " is already have asr file")
-        continue
+        with open(output_path, "r") as fi:
+            data = json.load(fi)
+        f = False
+        for k, v in data.items():
+            if v == "": 
+                print(f"key: {k}, value: {v}")
+                f = True
+                print(f"{video_id} contains empty string")
+                break
+        if f == False:
+            print(video_id, " is already have asr file")
+            continue
 
     # Collect keyframe frame IDs
     frame_ids = parse_frame_ids(video_dir)

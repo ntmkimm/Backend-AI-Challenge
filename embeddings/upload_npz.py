@@ -19,15 +19,15 @@ MILVUS_PORT = "19530"
 BATCH_SIZE = 1024          # batch insert to Milvus (vectors only; no GPU needed here)
 FLUSH_INTERVAL = 20000    # flush every N rows
 
-COLLECTION_NAME = 'AIC25_batch1_beit3'
+COLLECTION_NAME = 'AIC25_beit3'
 NPZ_KEY = "embedding"
 SAVE_FOLDER_NAME = "beit3_vector"
 
-# COLLECTION_NAME = 'AIC25_batch1_openclip'
+# COLLECTION_NAME = 'AIC25_openclip'
 # NPZ_KEY = "feature"
 # SAVE_FOLDER_NAME = "vector_file"
 
-ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
+ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
 
 def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
     """
@@ -153,7 +153,6 @@ def main():
     # Define schema
     schema = CollectionSchema([
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
-        # FieldSchema(name="filepath", dtype=DataType.VARCHAR, max_length=512),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
         FieldSchema(name="video_id", dtype=DataType.VARCHAR, max_length=256),
         FieldSchema(name="frame_id", dtype=DataType.INT64),

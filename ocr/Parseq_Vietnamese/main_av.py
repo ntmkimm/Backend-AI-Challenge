@@ -87,16 +87,21 @@ def remove_bboxes_in_y_range(infos, lo_bound, up_bound):
                                            lo_bound <= info['bbox'][3] <= up_bound)]
 
 # --- Video Range Config ---
-start_video = 'K01_V001' # include this video
-end_video = 'K05_V001' # not include this video
+# start_video = 'K12_V027' # include this video
+# end_video = 'K15_V001' # not include this video
     
-start_video = 'K05_V001' # include this video
-end_video = 'K10_V001' # not include this video
+# start_video = 'K05_V001' # include this video
+# end_video = 'K10_V001' # not include this vide
 
-start_video = 'K10_V001' # include this video
-end_video = 'K15_V001' # not include this video
+# miss K07_V011
 
-start_video = 'K15_V001' # include this video
+# start_video = 'K07_V012' # include this video
+# end_video = 'K10_V001' # not include this video
+
+# start_video = 'K10_V001' # include this video
+# end_video = 'K15_V001' # not include this video
+
+start_video = 'K01_V001' # include this video
 end_video = 'K21_V001' # not include this video
 
 print("start_video: ", start_video)
@@ -109,12 +114,14 @@ for _video_path in sorted(args.root_videos.glob("*.mp4")):
     if not (start_video <= video_name < end_video):
         continue
     video_files.append(_video_path)
+    
+video_files = video_files[::-1]
 
 # --- Process Videos (Phần được viết lại) ---
 for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
     while True:
         _video_id = _video_path.stem
-        print(f"\nProcessing video: {_video_id}")
+        print(f"\nProcessing video: {_video_id}") 
         output_file = args.output / _video_id / "ocr_parseq.json"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         

@@ -1,5 +1,0 @@
-screen ntmk3
-reverse all
-
-screen ntmk4 
-forward all

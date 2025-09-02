@@ -18,7 +18,7 @@ from torchvision import transforms
 from tqdm import tqdm
 
 # === CONFIGURATION ===
-ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
+ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
 BATCH_SIZE = 36
 MODEL_NAME = "beit3_large_patch16_384_retrieval"
 MODEL_FOLDER = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/models')
@@ -184,6 +184,8 @@ def main():
     print(f"Scanning for images in {ROOT}...")
     image_paths = []
     for sub in tqdm(sorted(ROOT.iterdir())):
+        if not (sub.name >= 'K01_V001' and sub.name < 'K21_V001'): 
+            continue
         if sub.is_dir():
             kf_dir = sub / "keyframes"
             vec_dir = sub / SAVE_FOLDER_NAME
@@ -199,9 +201,9 @@ def main():
 
     print(f"Found {len(image_paths)} images to process.")
     indexed_paths = list(enumerate(image_paths))
-    # print("forward")
-    indexed_paths = indexed_paths[::-1]
-    print("reverse")
+    print("forward")
+    # indexed_paths = indexed_paths[::-1]
+    # print("reverse")
 
     device_ids = list(range(torch.cuda.device_count()))
     if not device_ids:

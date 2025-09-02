@@ -173,9 +173,9 @@ def process_all_videos_worker(video_queue, output_base_folder, clip_threshold,
         # --- SCENES FILE LOGIC REMOVED ---
 
         output_folder = os.path.join(output_base_folder, video_name)
-        if (Path(output_folder).exists()): 
-            print(f"{output_folder} is already exists")
-            continue
+        # if (Path(output_folder).exists()): 
+        #     print(f"{output_folder} is already exists")
+        #     continue
 
         print(f"[GPU {device_id}] Starting video: {video_name}")
         try:
@@ -201,49 +201,49 @@ def check_video_process_all_frame_ids(video_name: str, input_folder: Path, outpu
         return False
 
     # 2. Find the frame ID of the last keyframe generated
-    # try:
-    #     # This is a robust way to check if the directory is empty and find the max in one pass
-    #     keyframe_paths = list(keyframes_dir.glob("*.webp"))
-    #     if not keyframe_paths:
-    #         print(f"Info: Keyframe directory for {video_name} exists but is empty.")
-    #         return False
+    try:
+        # This is a robust way to check if the directory is empty and find the max in one pass
+        keyframe_paths = list(keyframes_dir.glob("*.webp"))
+        if not keyframe_paths:
+            print(f"Info: Keyframe directory for {video_name} exists but is empty.")
+            return False
         
-    #     last_frame_id = max(int(p.stem.split('_')[-1]) for p in keyframe_paths)
-    # except (ValueError, IndexError):
-    #     # Handles cases with malformed filenames or empty directory after glob
-    #     print(f"Warning: Could not parse keyframe names in {keyframes_dir}. Assuming reprocessing is needed.")
-    #     return False
+        last_frame_id = max(int(p.stem.split('_')[-1]) for p in keyframe_paths)
+    except (ValueError, IndexError):
+        # Handles cases with malformed filenames or empty directory after glob
+        print(f"Warning: Could not parse keyframe names in {keyframes_dir}. Assuming reprocessing is needed.")
+        return False
 
-    # # 3. Get the total number of frames from the video file using PyAV
-    # total_frames = 0
-    # try:
-    #     with av.open(str(video_path), 'r') as container:
-    #         stream = container.streams.video[0]
-    #         # stream.frames contains the total frame count from metadata
-    #         total_frames = stream.frames
+    # 3. Get the total number of frames from the video file using PyAV
+    total_frames = 0
+    try:
+        with av.open(str(video_path), 'r') as container:
+            stream = container.streams.video[0]
+            # stream.frames contains the total frame count from metadata
+            total_frames = stream.frames
             
-    #         # Fallback: If `stream.frames` is 0 (metadata missing), calculate from duration and framerate
-    #         if total_frames == 0 and stream.duration and stream.average_rate:
-    #             fps = float(stream.average_rate)
-    #             duration_sec = float(stream.duration * stream.time_base)
-    #             total_frames = int(duration_sec * fps)
-    #             print(f"Warning: stream.frames was 0 for {video_name}. Calculated {total_frames} frames from duration.")
+            # Fallback: If `stream.frames` is 0 (metadata missing), calculate from duration and framerate
+            if total_frames == 0 and stream.duration and stream.average_rate:
+                fps = float(stream.average_rate)
+                duration_sec = float(stream.duration * stream.time_base)
+                total_frames = int(duration_sec * fps)
+                print(f"Warning: stream.frames was 0 for {video_name}. Calculated {total_frames} frames from duration.")
 
-    # except (av.AVError, IndexError, TypeError) as e:
-    #     print(f"Error opening video {video_name} with PyAV to get frame count: {e}")
-    #     # If we can't inspect the video, we can't confirm it's done, so return False to re-process.
-    #     return False
+    except (av.AVError, IndexError, TypeError) as e:
+        print(f"Error opening video {video_name} with PyAV to get frame count: {e}")
+        # If we can't inspect the video, we can't confirm it's done, so return False to re-process.
+        return False
 
-    # if total_frames == 0:
-    #     print(f"Error: Could not determine total frames for {video_name}. Assuming reprocessing is needed.")
-    #     return False
+    if total_frames == 0:
+        print(f"Error: Could not determine total frames for {video_name}. Assuming reprocessing is needed.")
+        return False
 
-    # # 4. Compare the last keyframe with the total frames
-    # # The threshold `25 * 60` represents a 60-second gap at 25 FPS.
-    # frame_difference = total_frames - last_frame_id
-    # if frame_difference > 25 * 60:
-    #     print(f"Problem: {video_name}. Last keyframe is at {last_frame_id}, but video has {total_frames} frames. Gap: {frame_difference} frames.")
-    #     return False
+    # 4. Compare the last keyframe with the total frames
+    # The threshold `25 * 60` represents a 60-second gap at 25 FPS.
+    frame_difference = total_frames - last_frame_id
+    if frame_difference > 25 * 60:
+        print(f"Problem: {video_name}. Last keyframe is at {last_frame_id}, but video has {total_frames} frames. Gap: {frame_difference} frames.")
+        return False
 
     # If all checks pass, the video is considered processed.
     return True
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     # internal: [start_video, end_video)
     # output_base_folder += '_skip=' + str(skip_frames) + "_" + str(clip_threshold) + "_" + str(frame_distance_threshold)
     print("output folder: ", output_base_folder)
-    start_video = 'K14_V001' # include this video
+    start_video = 'K01_V001' # include this video
     end_video = 'K31_V001' # exclude this video
     print("start video", start_video)
     print("end video", end_video)
@@ -291,11 +291,11 @@ if __name__ == "__main__":
     if iii != 'y': 
         exit()
     
-    for vf in video_files:
+    for vf in tqdm(video_files):
         video_name = os.path.splitext(os.path.basename(vf))[0]
         if (start_video <= video_name and video_name < end_video): 
-            if (Path(shot_folder) / (video_name + ".predictions.txt")).exists():
-                continue
+            # if (Path(shot_folder) / (video_name + ".predictions.txt")).exists():
+            #     continue
             if not check_video_process_all_frame_ids(video_name=video_name, input_folder=Path(input_folder), output_base_folder=Path(output_base_folder)):
                 video_queue.put(vf)
     

@@ -3,7 +3,7 @@ from services.milvus_service import MilvusService
 from services.polar_service import PolarService
 from services.beit3_service import BEiT3Service
 from services.paraphrase_service import ParaphraseService
-from config.settings import OPENCLIP_BATCH1, BEIT3_BATCH1, DEVICE_0, DEVICE_1
+from config.settings import OPENCLIP_MILVUS, BEIT3_MILVUS, DEVICE_0, DEVICE_1
 import threading
 import asyncio
 
@@ -15,12 +15,9 @@ class ServiceManager:
         self.paraphrase_service = None
         self.beit3_service = None
         self.milvus_services = {
-            OPENCLIP_BATCH1: None,
-            BEIT3_BATCH1: None,
+            OPENCLIP_MILVUS: None,
+            BEIT3_MILVUS: None,
         }
-        
-        self.milvus_beit3_batch1 = None
-        self.milvus_openclip_batch1 = None
         
         self.lock = threading.Lock()  # Lock to handle concurrent initialization
         self.async_lock = asyncio.Lock()
@@ -40,8 +37,8 @@ class ServiceManager:
         return self.milvus_services[collection_name]
     
     def get_milvus_services(self) -> dict:
-        # self.get_milvus_service_with_collection(collection_name=OPENCLIP_BATCH1)
-        # self.get_milvus_service_with_collection(collection_name=BEIT3_BATCH1)
+        self.get_milvus_service_with_collection(collection_name=OPENCLIP_MILVUS)
+        self.get_milvus_service_with_collection(collection_name=BEIT3_MILVUS)
         return self.milvus_services
 
     async def get_redis_service(self):

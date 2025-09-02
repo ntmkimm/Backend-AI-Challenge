@@ -24,7 +24,7 @@ def main():
     os.environ["ELASTICSEARCH_PORT"] = "9200"
     
     # Set dataset path
-    dataset_path = os.path.join(os.path.dirname(__file__), "../../dataset/full")
+    dataset_path = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge'
     os.environ["DATASET_PATH"] = dataset_path
     
     # Check prerequisites

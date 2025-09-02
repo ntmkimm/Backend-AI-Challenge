@@ -7,7 +7,7 @@ from models.schemas import Query
 from services.milvus_service import MilvusService
 from services.clip_service import CLIPService
 from services.postgres_service import get_connection, release_connection
-from config.settings import OPENCLIP_BATCH1, BEIT3_BATCH1, DEVICE_0, DEVICE_1
+from config.settings import OPENCLIP_MILVUS, BEIT3_MILVUS, DEVICE_0, DEVICE_1
 
 import asyncio
 from typing import List, Dict, Any
@@ -81,38 +81,15 @@ async def search_by_dislike_labels(
     # Keep only results present in allowed set
     return matched_pairs
 
-async def get_dislike_label_by_frame(
-    video_id: str,
-    frame_index: int,
-) -> int:
-    """User dislike cluster label của một keyframe"""
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT label
-        FROM cluster
-        WHERE video_id = %s AND frame_id = %s
-    """, (video_id, frame_index))
-    
-    label = cur.fetchone()
-    cur.close()
-    release_connection(conn)
-
-    if not label:
-        raise HTTPException(status_code=404, detail="Label not found")
-    return label[0]
-        
-
 async def search_one_query(
     q: Query,
     dislike_labels: List[int] = None,
 ):
     polar_service = service_manager.get_polar_service()
     milvus_services = service_manager.get_milvus_services()
-    # clip_service = service_manager.get_clip_service(device=DEVICE_0)
+    clip_service = service_manager.get_clip_service(device=DEVICE_0)
     beit3_service = None
-    clip_service = None
+    # clip_service = None
     # beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
     
     buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None, 'dislike_labels': None}
@@ -127,20 +104,14 @@ async def search_one_query(
     # Chuẩn bị các task async / blocking
     tasks = []
     
-    if q.text:
-        texts = q.text.split(" ")
-        label = await get_dislike_label_by_frame(texts[0], texts[1])
-        dislike_labels = [label]
-    
     start_time = time.time()
     
     if q.text:
-        tasks.append(search_by_text(beit3_service, milvus_services[BEIT3_BATCH1], q.text))
-        tasks.append(search_by_text(clip_service, milvus_services[OPENCLIP_BATCH1], q.text))
+        tasks.append(search_by_text(clip_service, milvus_services[OPENCLIP_MILVUS], q.text))
+        tasks.append(search_by_text(beit3_service, milvus_services[BEIT3_MILVUS], q.text))
     else:
         tasks.append(asyncio.sleep(0, result=None))
-        tasks.append(asyncio.sleep(0, result=None))
-        
+        tasks.append(asyncio.sleep(0, result=None))     
         
     # Image embedding search (async)
     if q.image:
@@ -151,8 +122,7 @@ async def search_one_query(
             img = None
 
         if img is not None:
-            tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_BATCH1], img))
-            # tasks.append(search_by_image(beit3_service, milvus_services[BEIT3_BATCH1], img))
+            tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
         else:
             tasks.append(asyncio.sleep(0, result=None))
     else:
@@ -184,13 +154,13 @@ async def search_one_query(
     # Chạy song song tất cả các task
     results = await asyncio.gather(*tasks)
 
-    buffer['beit_1'], buffer['openclip_1'], buffer['image'], buffer['ocr'], buffer['asr'], buffer['obj'], buffer['dislike_labels'] = results
+    buffer['openclip'], buffer['beit3'], buffer['image'], buffer['ocr'], buffer['asr'], buffer['obj'], buffer['dislike_labels'] = results
 
     combined_results = defaultdict(lambda: {'score': 0.0, 'video_id': None, 'frame_id': None })
-
+  
     # Xử lý kết quả từ buffer
-    if buffer['beit_1']:
-        for h in buffer['beit_1']:
+    if buffer['beit']:
+        for h in buffer['beit']:
             video_id = h.entity["video_id"]
             frame_id = h.entity["frame_id"]
             score = h.distance
@@ -198,7 +168,7 @@ async def search_one_query(
             combined_results[key].update({'video_id': video_id, 'frame_id': frame_id})
             combined_results[key]['score'] += weighted_score['beit3'] * score
 
-    if buffer['openclip_1']:
+    if buffer['openclip']:
         for h in buffer['openclip_1']:
             video_id = h.entity["video_id"]
             frame_id = h.entity["frame_id"]
@@ -208,7 +178,7 @@ async def search_one_query(
             combined_results[key]['score'] += weighted_score['clip'] * score
 
     if buffer['image']:
-        for h in buffer['image']:
+        for h in buffer['image_1']:
             video_id = h.entity["video_id"]
             frame_id = h.entity["frame_id"]
             score = h.distance

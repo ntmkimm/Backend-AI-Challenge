@@ -101,20 +101,19 @@ class ElasticsearchClient:
         - Với mỗi video, gọi self._process_files(video_dir) và streaming_bulk để index.
         - In tiến độ và tổng kết cuối cùng.
         """
+        print(dataset_path)
         if not dataset_path.exists():
             raise ValueError(f"Dataset path does not exist: {dataset_path}")
 
         # Tìm các thư mục batch*
         batch_dirs = [d for d in sorted(dataset_path.iterdir()) if d.is_dir() and d.name.startswith("batch")]
-
-        # Đếm tổng số video để in tiến độ
-        def iter_video_dirs() -> List[Path]:
-            for batch_dir in batch_dirs:
-                for d in sorted(batch_dir.iterdir()):
-                    if d.is_dir() and d.name != "maps":
-                        yield d
-
-        video_list = list(iter_video_dirs())
+        dataset_path = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
+        video_list = []
+        
+        for d in sorted(dataset_path.iterdir()):
+            print(d)
+            if d.is_dir() and d.name != "maps":
+                video_list.append(d)
         total_videos = len(video_list)
 
         print("\nStarting indexing process:")

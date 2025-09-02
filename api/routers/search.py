@@ -61,7 +61,9 @@ async def get_stage(
     page: int = 1,
     page_size: int = 100,
     redis_service: RedisService = Depends(get_redis_service),
+    user_id: str = 'anynomous',
 ):
+    print(f"/stage user_id: {user_id}")
     try:
         # Check valid stage_number
         if not 1 <= stage_number <= len(queries):
@@ -72,6 +74,7 @@ async def get_stage(
         results = await redis_service.get_one_answer_cached_redis(
             query=query,
             ttl_seconds=TIME_CACHE_ONE_QUERY,
+            user_id=user_id
         ) or []
 
         # Pagination
@@ -101,6 +104,7 @@ async def search_text(
     page_size: int = 100,
     user_id: str = 'anynomous',
 ):
+    print(f"/search user_id: {user_id}")
     try:
         if page * page_size > TOP_K: return []
         queries = get_valid_queries(queries=queries)
@@ -112,7 +116,8 @@ async def search_text(
             start_time = time.time()
             all_answers = await redis_service.get_all_answers_cached_redis(
                 queries=queries,
-                ttl_seconds=TIME_CACHE_ONE_QUERY 
+                ttl_seconds=TIME_CACHE_ONE_QUERY,
+                user_id=user_id,
             )
 
             start_time_algo = time.time()
@@ -204,6 +209,7 @@ async def chain_search_text(
     page_size: int = 100,
     user_id: str = 'anonymous', 
 ):
+    print(f"/chain_search user_id: {user_id}")
     try:
         if page * page_size > TOP_K: return []
         queries = get_valid_queries(queries=queries)
@@ -215,7 +221,8 @@ async def chain_search_text(
             start_time = time.time()
             all_answers = await redis_service.get_all_answers_cached_redis(
                 queries=queries,
-                ttl_seconds=TIME_CACHE_ONE_QUERY
+                ttl_seconds=TIME_CACHE_ONE_QUERY,
+                user_id=user_id,
             )
             
             start_time_algo = time.time()
@@ -254,9 +261,9 @@ async def chain_search_text(
                     curr_fids, curr_scores, _ = tensor_stages[i]
 
                     diff = curr_fids[:, None] - prev_fids[None, :]
-                    valid = (diff > MIN_FRAME_GAP) & (diff <= MAX_FRAME_GAP // len(queries))
+                    # valid = (diff > MIN_FRAME_GAP) & (diff <= MAX_FRAME_GAP // len(queries))
+                    valid = (diff > MIN_FRAME_GAP) & (diff <= MAX_FRAME_GAP)
 
-                    # decay = (MAX_FRAME_GAP - diff) / MAX_FRAME_GAP
                     decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 50)
                     temp_score = dp_scores[i - 1][None, :] + curr_scores[:, None] * decay
                     temp_score = torch.where(valid, temp_score, torch.full_like(temp_score, -1e9))

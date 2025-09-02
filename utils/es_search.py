@@ -1,7 +1,7 @@
 from es_module import search_by_ocr, search_by_asr, get_text_by_frame
 
 video_id = "L25_V084"
-frame_id = 31794
+frame_id = 31792
 res = get_text_by_frame(video_id=video_id, frame_id=frame_id)
 print(res)
 
