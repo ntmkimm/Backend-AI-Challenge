@@ -22,10 +22,25 @@ class RedisService:
             decode_responses=False
         )
         return self
+    
+    async def flush_user_search_cache(self, user_id: str, mode: str):
+        """
+        Xoá toàn bộ cache có prefix 'search_cache:{user_id}:{mode}:*'
+        """
+        pattern = f"search_cache:{user_id}:{mode}:*"
+        cursor = b"0"
+        keys_deleted = 0
+
+        while cursor:
+            cursor, keys = await self.redis_client.scan(cursor=cursor, match=pattern, count=1000)
+            if keys:
+                await self.redis_client.delete(*keys)
+                keys_deleted += len(keys)
 
     async def get_dislike_labels(self, user_id: str = 'anynomous') -> list[int]:
+        default_cluster = [2, 17, 39, 56, 57, 60, 63, 65, 78, 79, 90, 92, 93, 95, 98, 111, 113, 121, 124, 132, 146, 147, 150, 161, 166, 169, 176, 192]
         labels = await self.redis_client.smembers(f"cluster:{user_id}")
-        return [int(l) for l in labels]
+        return [int(l) for l in labels] + default_cluster
 
     def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal") -> str:
         queries_serialized = json.dumps([json.loads(q.json()) for q in queries], sort_keys=True)
@@ -34,6 +49,9 @@ class RedisService:
 
     async def save_tmp_search_results_to_cache(self, redis_key, results, ttl_seconds=300):
         await self.redis_client.setex(redis_key, ttl_seconds, pickle.dumps(results))
+        
+    async def add_queries_to_history(self, queries: Query, dislike_labels: List, user_id: str = 'anynomous'):
+        pass
 
     def make_query_cache_key(self, query: Query, user_id: str = 'anynomous') -> str:
         data = query.dict()
@@ -74,6 +92,8 @@ class RedisService:
             print(f"Cache miss at: {uncached_indices}")
             dislike_labels = await self.get_dislike_labels(user_id=user_id)
 
+            # add to history
+            await self.add_queries_to_history(queries=queries, dislike_labels=dislike_labels, user_id=user_id)
             tasks = [
                 search_one_query(
                     q=queries[i],

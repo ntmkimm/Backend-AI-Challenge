@@ -18,7 +18,7 @@ from tqdm import tqdm
 from services.MetaCLIP.src.mini_clip.factory import create_model_and_transforms, get_tokenizer
 
 # === CONFIGURATION ===
-ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch1")
+ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
 BATCH_SIZE = 40
 SAVE_FOLDER_NAME = "metaclip_vector"
 

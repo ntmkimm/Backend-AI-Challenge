@@ -113,6 +113,7 @@ async def search_text(
         if cached_bytes is not None:
             all_results = pickle.loads(cached_bytes)
         else:
+            await redis_service.flush_user_search_cache(user_id=user_id, mode="normal")
             start_time = time.time()
             all_answers = await redis_service.get_all_answers_cached_redis(
                 queries=queries,
@@ -218,6 +219,7 @@ async def chain_search_text(
         if cached_bytes is not None:
             all_results = pickle.loads(cached_bytes)
         else:
+            await redis_service.flush_user_search_cache(user_id=user_id, mode="chain")
             start_time = time.time()
             all_answers = await redis_service.get_all_answers_cached_redis(
                 queries=queries,

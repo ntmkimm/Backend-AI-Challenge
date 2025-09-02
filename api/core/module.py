@@ -159,8 +159,8 @@ async def search_one_query(
     combined_results = defaultdict(lambda: {'score': 0.0, 'video_id': None, 'frame_id': None })
   
     # Xử lý kết quả từ buffer
-    if buffer['beit']:
-        for h in buffer['beit']:
+    if buffer['beit3']:
+        for h in buffer['beit3']:
             video_id = h.entity["video_id"]
             frame_id = h.entity["frame_id"]
             score = h.distance
@@ -169,7 +169,7 @@ async def search_one_query(
             combined_results[key]['score'] += weighted_score['beit3'] * score
 
     if buffer['openclip']:
-        for h in buffer['openclip_1']:
+        for h in buffer['openclip']:
             video_id = h.entity["video_id"]
             frame_id = h.entity["frame_id"]
             score = h.distance
@@ -178,7 +178,7 @@ async def search_one_query(
             combined_results[key]['score'] += weighted_score['clip'] * score
 
     if buffer['image']:
-        for h in buffer['image_1']:
+        for h in buffer['image']:
             video_id = h.entity["video_id"]
             frame_id = h.entity["frame_id"]
             score = h.distance

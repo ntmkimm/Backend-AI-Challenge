@@ -9,26 +9,31 @@ default_cluster = [2, 17, 39, 56, 57, 60, 63, 65, 78, 79, 90, 92, 93, 95, 98, 11
 _imgs = []
 for _gr in tqdm(default_cluster, desc="prepare cluster to delete"):
     _gr_path = ROOT_GROUP / ("group_" + str(_gr))
-    for _img in sorted(_gr_path):
-        _img_name = _img.name
+    for _img in sorted(_gr_path.glob("*.webp")):
         _img_data = {}
-        _img_data["video_id"] = _img_name.split("-")[0]
-        _img_data["frame_id"] = int(_img_name.split("_")[1])
-        _imgs.append(_img)
+        tmp = _img.stem.split("-")
+        _img_data["video_id"] = tmp[0]
+        _img_data["frame_id"] = int(tmp[1].split("_")[1])
+        _imgs.append(_img_data)
 
 print("milvus")
 from pymilvus import connections, Collection
 
-connections.connect("default", host="192.158.20.56", port="19530")
+connections.connect("default", host="192.168.20.156", port="19530")
 
 collection_openclip = Collection("AIC25_openclip")
 collection_beit3 = Collection("AIC25_beit3")
 
 before_openclip = collection_openclip.num_entities
 before_beit3 = collection_beit3.num_entities
+print(before_openclip)
+print(before_beit3)
+
+t = input("confirm? [y/n]")
+if t != 'y': exit()
 
 for _img in tqdm(_imgs):
-    expr = f"video_id == {_img['video_id']} and frame_id == {_img['frame_id']}"
+    expr = f"video_id == '{_img['video_id']}' and frame_id == {_img['frame_id']}"
     collection_openclip.delete(expr=expr)
     collection_beit3.delete(expr=expr)
     
