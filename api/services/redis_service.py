@@ -51,7 +51,24 @@ class RedisService:
         await self.redis_client.setex(redis_key, ttl_seconds, pickle.dumps(results))
         
     async def add_queries_to_history(self, queries: Query, dislike_labels: List, user_id: str = 'anynomous'):
-        pass
+        key = f"history:{user_id}"
+        await self.redis_client.lpush(key, json.dumps({
+            "queries": [q.dict() for q in queries],
+            "dislikes": dislike_labels
+        }))
+        await self.redis_client.ltrim(key, 0, 10)
+        
+    async def get_queries_history(self, user_id: str = 'anynomous', limit = 10):
+        key = f"history:{user_id}"
+        items = await self.redis_client.lrange(key, 0, limit - 1) 
+
+        history = []
+        for raw in items:
+            try:
+                history.append(json.loads(raw))
+            except Exception as e:
+                print(f"[Redis Warning] Failed to parse history entry: {e}")
+        return history
 
     def make_query_cache_key(self, query: Query, user_id: str = 'anynomous') -> str:
         data = query.dict()
@@ -94,6 +111,8 @@ class RedisService:
 
             # add to history
             await self.add_queries_to_history(queries=queries, dislike_labels=dislike_labels, user_id=user_id)
+            history = await self.get_queries_history(user_id=user_id)
+            print(history)
             tasks = [
                 search_one_query(
                     q=queries[i],

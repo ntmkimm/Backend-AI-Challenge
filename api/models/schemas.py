@@ -20,4 +20,8 @@ class ResultItem(BaseModel):
     videoId: str
     confidence: float
     timestamp: str
+    
+class HistoryItem(BaseModel):
+    queries: List[Query]
+    dislike_labels: List[int]
 

@@ -23,4 +23,4 @@ pycocoevalcap
 
 
 # export HF_ENDPOINT=https://hf-mirror.com
-
+# truncate -s 0 ~/.local/share/docker/containers/*/*.log

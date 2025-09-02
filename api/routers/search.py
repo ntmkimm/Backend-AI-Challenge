@@ -4,7 +4,7 @@ from collections import defaultdict
 import torch
 
 from typing import List, Dict, Optional
-from models.schemas import Query, ResultItem, InformationOfFrame
+from models.schemas import Query, ResultItem, InformationOfFrame, HistoryItem
 from services.redis_service import RedisService
 from services.polar_service import PolarService
 from config.settings import MAX_FRAME_GAP, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES, MIN_FRAME_GAP
@@ -18,6 +18,17 @@ import pickle
 import asyncio
 
 router = APIRouter(prefix="/embeddings") 
+
+@router.post("/history", response_model=List[HistoryItem])
+async def get_history(
+    user_id: str = "anynomous",
+    redis_service: RedisService = Depends(get_redis_service),
+):
+    hist = await redis_service.get_queries_history(user_id=user_id, limit=10)
+    return [
+        {"queries": [Query(**q) for q in item["queries"]], "dislike_labels": item["dislikes"]}
+        for item in hist
+    ]
 
 @router.post("/information", response_model=Optional[InformationOfFrame])
 async def get_information(
