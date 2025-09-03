@@ -88,9 +88,9 @@ async def search_one_query(
     polar_service = service_manager.get_polar_service()
     milvus_services = service_manager.get_milvus_services()
     clip_service = service_manager.get_clip_service(device=DEVICE_0)
-    beit3_service = None
+    # beit3_service = None
     # clip_service = None
-    # beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
+    beit3_service = service_manager.get_beit3_service(device=DEVICE_0)
     
     buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None, 'dislike_labels': None}
     

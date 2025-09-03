@@ -86,23 +86,17 @@ def remove_bboxes_in_y_range(infos, lo_bound, up_bound):
     return [info for info in infos if not (lo_bound <= info['bbox'][1] <= up_bound and
                                            lo_bound <= info['bbox'][3] <= up_bound)]
 
-# --- Video Range Config ---
-# start_video = 'K12_V027' # include this video
-# end_video = 'K15_V001' # not include this video
-    
+# start_video = 'K01_V001' # include this video
+# end_video = 'K05_V001' # not include this video
+
 # start_video = 'K05_V001' # include this video
-# end_video = 'K10_V001' # not include this vide
-
-# miss K07_V011
-
-# start_video = 'K07_V012' # include this video
 # end_video = 'K10_V001' # not include this video
 
-# start_video = 'K10_V001' # include this video
-# end_video = 'K15_V001' # not include this video
+start_video = 'K10_V001' # include this video
+end_video = 'K15_V001' # not include this video
 
-start_video = 'K01_V001' # include this video
-end_video = 'K21_V001' # not include this video
+# start_video = 'K15_V001' # include this video
+# end_video = 'K21_V001' # not include this video
 
 print("start_video: ", start_video)
 print("end_video: ", end_video)
@@ -114,15 +108,13 @@ for _video_path in sorted(args.root_videos.glob("*.mp4")):
     if not (start_video <= video_name < end_video):
         continue
     video_files.append(_video_path)
-    
-video_files = video_files[::-1]
 
 # --- Process Videos (Phần được viết lại) ---
 for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
     while True:
         _video_id = _video_path.stem
         print(f"\nProcessing video: {_video_id}") 
-        output_file = args.output / _video_id / "ocr_parseq.json"
+        output_file = args.output / _video_id / "ocr_parseq_new.json"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
         if output_file.exists():
@@ -183,7 +175,8 @@ for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
                         h, w, _ = frame_rgb.shape
 
                         # --- Logic xử lý bbox và OCR (giữ nguyên từ code gốc) ---
-                        _infos = remove_bboxes_in_y_range(_infos, lo_bound=655, up_bound=690)
+                        # _infos = remove_bboxes_in_y_range(_infos, lo_bound=655, up_bound=690)
+                        _infos = remove_bboxes_in_y_range(_infos, lo_bound=980, up_bound=1040)
                         _infos = remove_containing_boxes(_infos, margin=5)
                         _infos = sort_bboxes_linewise(_infos, y_thresh=15)
                         
@@ -243,7 +236,7 @@ for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
             break
 
         # --- Lưu kết quả (giữ nguyên) ---
-        out_dir = args.root_bboxes.parent / (args.root_bboxes.name + "_parseq")
+        out_dir = args.root_bboxes.parent / (args.root_bboxes.name + "_parseq_new")
         out_dir.mkdir(exist_ok=True, parents=True)
         
         # Sắp xếp lại dict trước khi lưu để đảm bảo thứ tự

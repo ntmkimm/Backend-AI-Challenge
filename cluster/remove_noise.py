@@ -4,7 +4,8 @@ from tqdm import tqdm
 ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
 ROOT_GROUP = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/group/200gr")
 
-default_cluster = [2, 17, 39, 56, 57, 60, 63, 65, 78, 79, 90, 92, 93, 95, 98, 111, 113, 121, 124, 132, 146, 147, 150, 161, 166, 169, 176, 192]
+# default_cluster = [2, 17, 39, 56, 57, 60, 63, 65, 78, 79, 90, 92, 93, 95, 98, 111, 113, 121, 124, 132, 146, 147, 150, 161, 166, 169, 176, 192]
+default_cluster = [131]
 
 _imgs = []
 for _gr in tqdm(default_cluster, desc="prepare cluster to delete"):

@@ -5,6 +5,7 @@ from typing import List, Dict, Generator, Optional
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import streaming_bulk
 import concurrent.futures
+from tqdm import tqdm
 
 from ..config.settings import ElasticsearchConfig
 from ..models.document import Document, SearchResult
@@ -83,53 +84,33 @@ class ElasticsearchClient:
             except Exception as e:
                 error_frames['processing_error'].append(f"{frame_id} ({str(e)})")
 
-        print(f"  Video {video_dir.name}:")
-        print(f"    - Total frames: {len(all_frames)}")
-        print(f"    - Processed frames: {frame_count}")
         total_errors = sum(len(errors) for errors in error_frames.values())
         if total_errors > 0:
-            print(f"    - Failed frames ({total_errors}):")
+            print(f"Failed frames ({total_errors}):")
             for k, v in error_frames.items():
                 if v:
-                    print(f"      + {k} ({len(v)}): {v[:3]}{' ...' if len(v)>3 else ''}")
+                    print(f"{k} ({len(v)}): {v[:3]}{' ...' if len(v)>3 else ''}")
 
     def index_dataset(self, dataset_path: Path) -> None:
-        """
-        Index toàn bộ dataset theo cách đơn giản, tuần tự.
-        - Duyệt các thư mục batch*/.
-        - Trong mỗi batch, duyệt các thư mục video (bỏ qua 'maps').
-        - Với mỗi video, gọi self._process_files(video_dir) và streaming_bulk để index.
-        - In tiến độ và tổng kết cuối cùng.
-        """
-        print(dataset_path)
-        if not dataset_path.exists():
-            raise ValueError(f"Dataset path does not exist: {dataset_path}")
-
-        # Tìm các thư mục batch*
-        batch_dirs = [d for d in sorted(dataset_path.iterdir()) if d.is_dir() and d.name.startswith("batch")]
-        dataset_path = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
         video_list = []
         
         for d in sorted(dataset_path.iterdir()):
-            print(d)
+            # print(d)
             if d.is_dir() and d.name != "maps":
                 video_list.append(d)
         total_videos = len(video_list)
 
-        print("\nStarting indexing process:")
-        print(f"Found {len(batch_dirs)} batch(es), will process all videos ({total_videos} videos)\n")
+        print(f"Found ({total_videos} videos)\n")
 
         total_docs = 0
         total_failures: List[str] = []
 
         # Duyệt tuần tự
-        for idx, video_dir in enumerate(video_list, start=1):
-            print(f"[{idx}/{total_videos}] Indexing {video_dir.name} ...")
+        for video_dir in tqdm(video_list):
             batch_success = 0
             batch_failures: List[str] = []
 
             try:
-                # _process_files(video_dir) phải yield các action cho ES
                 for ok, result in streaming_bulk(
                     self.es,
                     self._process_files(video_dir),
@@ -139,7 +120,6 @@ class ElasticsearchClient:
                     if ok:
                         batch_success += 1
                     else:
-                        # result thường là dict error từ ES
                         batch_failures.append(str(result))
             except Exception as e:
                 print(f"  Error indexing {video_dir.name}: {e}")
@@ -150,9 +130,7 @@ class ElasticsearchClient:
 
             # In gọn kết quả từng video
             if batch_failures:
-                print(f"  -> Indexed: {batch_success}, Failures: {len(batch_failures)}")
-            else:
-                print(f"  -> Indexed: {batch_success}")
+                print(f"Indexed: {batch_success}, Failures: {len(batch_failures)}")
 
         # Tổng kết
         print("\nIndexing Summary:")

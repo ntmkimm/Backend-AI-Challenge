@@ -95,6 +95,8 @@ def main():
     print(f"Scanning for images in {ROOT}...")
     image_paths = []
     for sub in tqdm(sorted(ROOT.iterdir())):
+        if not (sub.name >= 'K01_V001' and sub.name < 'K21_V001'): 
+            continue
         if sub.is_dir():
             kf_dir = sub / "keyframes"
             vec_dir = sub / SAVE_FOLDER_NAME

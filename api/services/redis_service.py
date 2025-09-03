@@ -38,9 +38,8 @@ class RedisService:
                 keys_deleted += len(keys)
 
     async def get_dislike_labels(self, user_id: str = 'anynomous') -> list[int]:
-        default_cluster = [2, 17, 39, 56, 57, 60, 63, 65, 78, 79, 90, 92, 93, 95, 98, 111, 113, 121, 124, 132, 146, 147, 150, 161, 166, 169, 176, 192]
         labels = await self.redis_client.smembers(f"cluster:{user_id}")
-        return [int(l) for l in labels] + default_cluster
+        return [int(l) for l in labels]
 
     def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal") -> str:
         queries_serialized = json.dumps([json.loads(q.json()) for q in queries], sort_keys=True)
@@ -111,8 +110,7 @@ class RedisService:
 
             # add to history
             await self.add_queries_to_history(queries=queries, dislike_labels=dislike_labels, user_id=user_id)
-            history = await self.get_queries_history(user_id=user_id)
-            print(history)
+
             tasks = [
                 search_one_query(
                     q=queries[i],
