@@ -4,8 +4,8 @@ from tqdm import tqdm
 ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
 ROOT_GROUP = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/group/200gr")
 
-# default_cluster = [2, 17, 39, 56, 57, 60, 63, 65, 78, 79, 90, 92, 93, 95, 98, 111, 113, 121, 124, 132, 146, 147, 150, 161, 166, 169, 176, 192]
-default_cluster = [131]
+default_cluster = [2, 17, 39, 56, 57, 60, 63, 65, 78, 79, 90, 92, 93, 95, 98, 111, 113, 121, 124, 132, 146, 147, 150, 161, 166, 169, 176, 192]
+default_cluster += [131]
 
 _imgs = []
 for _gr in tqdm(default_cluster, desc="prepare cluster to delete"):
@@ -22,30 +22,38 @@ from pymilvus import connections, Collection
 
 connections.connect("default", host="192.168.20.156", port="19530")
 
-collection_openclip = Collection("AIC25_openclip")
-collection_beit3 = Collection("AIC25_beit3")
+# collection_openclip = Collection("AIC25_openclip")
+# collection_beit3 = Collection("AIC25_beit3")
+collection_siglip2 = Collection("AIC25_siglip2")
 
-before_openclip = collection_openclip.num_entities
-before_beit3 = collection_beit3.num_entities
-print(before_openclip)
-print(before_beit3)
+# before_openclip = collection_openclip.num_entities
+# before_beit3 = collection_beit3.num_entities
+before_siglip2 = collection_siglip2.num_entities
+
+# print(before_openclip)
+# print(before_beit3)
+print(before_siglip2)
 
 t = input("confirm? [y/n]")
 if t != 'y': exit()
 
 for _img in tqdm(_imgs):
     expr = f"video_id == '{_img['video_id']}' and frame_id == {_img['frame_id']}"
-    collection_openclip.delete(expr=expr)
-    collection_beit3.delete(expr=expr)
+    # collection_openclip.delete(expr=expr)
+    # collection_beit3.delete(expr=expr)
+    collection_siglip2.delete(expr=expr)
     
-collection_openclip.compact()
-collection_beit3.compact()
+# collection_openclip.compact()
+# collection_beit3.compact()
+collection_siglip2.compact()
 
-after_openclip = collection_openclip.num_entities
-after_beit3 = collection_beit3.num_entities
+# after_openclip = collection_openclip.num_entities
+# after_beit3 = collection_beit3.num_entities
+after_siglip2 = collection_siglip2.num_entities
 
-print(f"AIC25_openclip: {before_openclip - after_openclip} records removed")
-print(f"AIC25_beit3:     {before_beit3 - after_beit3} records removed")
+# print(f"AIC25_openclip: {before_openclip - after_openclip} records removed")
+# print(f"AIC25_beit3:     {before_beit3 - after_beit3} records removed")
+print(f"AIC25_siglip2:     {before_siglip2 - after_siglip2} records removed")
     
 # print("elastic")
 # from elasticsearch import Elasticsearch

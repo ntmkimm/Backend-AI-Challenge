@@ -25,8 +25,9 @@ async def get_history(
     redis_service: RedisService = Depends(get_redis_service),
 ):
     hist = await redis_service.get_queries_history(user_id=user_id, limit=10)
+    print("/history user_id: ", user_id)
     return [
-        {"queries": [Query(**q) for q in item["queries"]], "dislike_labels": item["dislikes"]}
+        {"queries": [Query(**q) for q in item["queries"]]}
         for item in hist
     ]
 

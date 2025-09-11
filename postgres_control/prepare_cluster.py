@@ -14,7 +14,7 @@ DB_PORT = 5432
 
 # Dataset paths
 BASE_PATH = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
-LABEL_PATH = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/cluster/cluster_labels_200.npy")
+LABEL_PATH = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/cluster/cluster_labels_400.npy")
 
 # Load keyframes
 keyframe_files = []

@@ -49,15 +49,14 @@ class RedisService:
     async def save_tmp_search_results_to_cache(self, redis_key, results, ttl_seconds=300):
         await self.redis_client.setex(redis_key, ttl_seconds, pickle.dumps(results))
         
-    async def add_queries_to_history(self, queries: Query, dislike_labels: List, user_id: str = 'anynomous'):
+    async def add_queries_to_history(self, queries: Query, user_id: str = 'anynomous'):
         key = f"history:{user_id}"
         await self.redis_client.lpush(key, json.dumps({
             "queries": [q.dict() for q in queries],
-            "dislikes": dislike_labels
         }))
         await self.redis_client.ltrim(key, 0, 10)
         
-    async def get_queries_history(self, user_id: str = 'anynomous', limit = 10):
+    async def get_queries_history(self, user_id: str = 'anynomous', limit = 5):
         key = f"history:{user_id}"
         items = await self.redis_client.lrange(key, 0, limit - 1) 
 
@@ -86,6 +85,9 @@ class RedisService:
         user_id: str = 'anynomous',
         ttl_seconds: int = 90,
     ):
+        dislike_labels = await self.get_dislike_labels(user_id=user_id)
+        await self.add_queries_to_history(queries=queries, user_id=user_id)
+        
         keys = [self.make_query_cache_key(query=q, user_id=user_id) for q in queries]
         cached_bytes_list = await self.redis_client.mget(keys)
 
@@ -106,10 +108,6 @@ class RedisService:
 
         if uncached_indices:
             print(f"Cache miss at: {uncached_indices}")
-            dislike_labels = await self.get_dislike_labels(user_id=user_id)
-
-            # add to history
-            await self.add_queries_to_history(queries=queries, dislike_labels=dislike_labels, user_id=user_id)
 
             tasks = [
                 search_one_query(
@@ -155,9 +153,9 @@ class RedisService:
                 return self.deserialize_result(cached_bytes)
             except Exception as e:
                 print(f"[Redis Warning] Deserialize failed: {e}")
+        dislike_labels = await self.get_dislike_labels(user_id=user_id)
 
         try:
-            dislike_labels = await self.get_dislike_labels(user_id=user_id)
             result = await search_one_query(
                 q=query,
                 dislike_labels=dislike_labels

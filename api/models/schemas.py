@@ -23,5 +23,5 @@ class ResultItem(BaseModel):
     
 class HistoryItem(BaseModel):
     queries: List[Query]
-    dislike_labels: List[int]
+    
 

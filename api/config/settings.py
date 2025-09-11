@@ -20,6 +20,7 @@ CLIP_MODEL = "openclip"
 # COLLECTION MILVUS
 OPENCLIP_MILVUS = "AIC25_openclip"
 BEIT3_MILVUS = "AIC25_beit3"
+SIGLIP2_MILVUS = "AIC25_siglip2"
 
 DEVICE_0 = "cuda:0" 
 DEVICE_1 = "cuda:1"

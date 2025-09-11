@@ -13,15 +13,15 @@ import torch
 import torch.multiprocessing as mp
 
 # === CONFIG ===
-DIMENSION = 1024
+DIMENSION = 1536
 MILVUS_HOST = "192.168.20.156"
 MILVUS_PORT = "19530"
 BATCH_SIZE = 1024          # batch insert to Milvus (vectors only; no GPU needed here)
 FLUSH_INTERVAL = 20000    # flush every N rows
 
-COLLECTION_NAME = 'AIC25_beit3'
+COLLECTION_NAME = 'AIC25_siglip2'
 NPZ_KEY = "embedding"
-SAVE_FOLDER_NAME = "beit3_vector"
+SAVE_FOLDER_NAME = "siglip2_vector"
 
 # COLLECTION_NAME = 'AIC25_openclip'
 # NPZ_KEY = "feature"

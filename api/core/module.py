@@ -7,7 +7,7 @@ from models.schemas import Query
 from services.milvus_service import MilvusService
 from services.clip_service import CLIPService
 from services.postgres_service import get_connection, release_connection
-from config.settings import OPENCLIP_MILVUS, BEIT3_MILVUS, DEVICE_0, DEVICE_1
+from config.settings import OPENCLIP_MILVUS, BEIT3_MILVUS, DEVICE_0, DEVICE_1, SIGLIP2_MILVUS
 
 import asyncio
 from typing import List, Dict, Any
@@ -85,31 +85,36 @@ async def search_one_query(
     q: Query,
     dislike_labels: List[int] = None,
 ):
+    # service
+    print("dislike labels: ", dislike_labels)
     polar_service = service_manager.get_polar_service()
     milvus_services = service_manager.get_milvus_services()
-    clip_service = service_manager.get_clip_service(device=DEVICE_0)
     # beit3_service = None
+    # siglip2_service = None
     # clip_service = None
-    beit3_service = service_manager.get_beit3_service(device=DEVICE_0)
-    
-    buffer = { 'text': None, 'ocr': None, 'asr': None, 'obj': None, 'origin': None, 'image': None, 'dislike_labels': None}
-    
-    if beit3_service and clip_service:
-        weighted_score = { 'clip': 0.3, 'beit3': 0.2, 'ocr': 0.5, 'asr': 0.35, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
-    elif beit3_service and not clip_service:
-        weighted_score = { 'clip': 0, 'beit3': 0.5, 'ocr': 0.5, 'asr': 0.35, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
-    else:
-        weighted_score = { 'clip': 0.5, 'beit3': 0, 'ocr': 0.5, 'asr': 0.35, 'obj': 0.1, 'origin': 0, 'image': 0.5 }
+    siglip2_service = service_manager.get_siglip2_service(device=DEVICE_0)
+    clip_service = service_manager.get_clip_service(device=DEVICE_1)
+    beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
+
+    weighted_score = { 'clip': 0, 'beit3': 0, 'siglip2': 0, 'ocr': 0, 'asr': 0, 'obj': 0, 'image': 0 }
+    if clip_service: weighted_score['clip'] = 0.2
+    if beit3_service: weighted_score['beit3'] = 0.2
+    if siglip2_service: weighted_score['siglip2'] = 0.2
+    full_score = weighted_score['clip'] + weighted_score['beit3'] + weighted_score['siglip2']
+    weighted_score['ocr'] = 2 / 3 * full_score
+    weighted_score['asr'] = 1 / 3 * full_score
+    weighted_score['image'] = full_score
     
     # Chuẩn bị các task async / blocking
+    start_time = time.time()
     tasks = []
     
-    start_time = time.time()
-    
     if q.text:
+        tasks.append(search_by_text(siglip2_service, milvus_services[SIGLIP2_MILVUS], q.text))
         tasks.append(search_by_text(clip_service, milvus_services[OPENCLIP_MILVUS], q.text))
         tasks.append(search_by_text(beit3_service, milvus_services[BEIT3_MILVUS], q.text))
     else:
+        tasks.append(asyncio.sleep(0, result=None))
         tasks.append(asyncio.sleep(0, result=None))
         tasks.append(asyncio.sleep(0, result=None))     
         
@@ -122,7 +127,9 @@ async def search_one_query(
             img = None
 
         if img is not None:
-            tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
+            tasks.append(search_by_image(siglip2_service, milvus_services[SIGLIP2_MILVUS], img))
+            # tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
+            # tasks.append(search_by_image(beit3_service, milvus_services[BEIT3_MILVUS], img))
         else:
             tasks.append(asyncio.sleep(0, result=None))
     else:
@@ -153,12 +160,23 @@ async def search_one_query(
 
     # Chạy song song tất cả các task
     results = await asyncio.gather(*tasks)
+    
+    # get buffer
+    buffer = {}
+    buffer['siglip2'], buffer['openclip'], buffer['beit3'], buffer['image'], buffer['ocr'], buffer['asr'], buffer['obj'], buffer['dislike_labels'] = results
 
-    buffer['openclip'], buffer['beit3'], buffer['image'], buffer['ocr'], buffer['asr'], buffer['obj'], buffer['dislike_labels'] = results
-
+    # Xử lý kết quả từ buffer
     combined_results = defaultdict(lambda: {'score': 0.0, 'video_id': None, 'frame_id': None })
   
-    # Xử lý kết quả từ buffer
+    if buffer['siglip2']:
+        for h in buffer['siglip2']:
+            video_id = h.entity["video_id"]
+            frame_id = h.entity["frame_id"]
+            score = h.distance
+            key = f"{video_id}_{frame_id}"
+            combined_results[key].update({'video_id': video_id, 'frame_id': frame_id})
+            combined_results[key]['score'] += weighted_score['siglip2'] * score
+  
     if buffer['beit3']:
         for h in buffer['beit3']:
             video_id = h.entity["video_id"]

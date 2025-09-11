@@ -2,8 +2,9 @@ from services.clip_service import CLIPService
 from services.milvus_service import MilvusService
 from services.polar_service import PolarService
 from services.beit3_service import BEiT3Service
+from services.siglip2_service import SigLIP2Service
 from services.paraphrase_service import ParaphraseService
-from config.settings import OPENCLIP_MILVUS, BEIT3_MILVUS, DEVICE_0, DEVICE_1
+from config.settings import OPENCLIP_MILVUS, BEIT3_MILVUS, SIGLIP2_MILVUS, DEVICE_0, DEVICE_1
 import threading
 import asyncio
 
@@ -14,9 +15,11 @@ class ServiceManager:
         self.polar_service = None
         self.paraphrase_service = None
         self.beit3_service = None
+        self.siglip2_service = None
         self.milvus_services = {
             OPENCLIP_MILVUS: None,
             BEIT3_MILVUS: None,
+            SIGLIP2_MILVUS: None,
         }
         
         self.lock = threading.Lock()  # Lock to handle concurrent initialization
@@ -37,6 +40,7 @@ class ServiceManager:
         return self.milvus_services[collection_name]
     
     def get_milvus_services(self) -> dict:
+        self.get_milvus_service_with_collection(collection_name=SIGLIP2_MILVUS)
         self.get_milvus_service_with_collection(collection_name=OPENCLIP_MILVUS)
         self.get_milvus_service_with_collection(collection_name=BEIT3_MILVUS)
         return self.milvus_services
@@ -70,14 +74,18 @@ class ServiceManager:
                 if self.beit3_service is None:
                     self.beit3_service = BEiT3Service(device=device)
         return self.beit3_service
+    
+    def get_siglip2_service(self, device):
+        if self.siglip2_service is None:
+            with self.lock:
+                if self.siglip2_service is None:
+                    self.siglip2_service = SigLIP2Service(device=device)
+        return self.siglip2_service
 
 # Initialize service manager globally
 service_manager = ServiceManager()
 
 # Replace original get_* functions with the methods from ServiceManager
-def get_clip_service():
-    return service_manager.get_clip_service(device=DEVICE_0)
-
 def get_milvus_service_with_collection(collection_name):
     return service_manager.get_milvus_service_with_collection(collection_name=collection_name)
 
@@ -93,5 +101,11 @@ def get_polar_service():
 def get_paraphrase_service():
     return service_manager.get_paraphrase_service()
 
-def get_beit3_service():
-    return service_manager.get_beit3_service(device=DEVICE_1)
+def get_clip_service(device=DEVICE_0):
+    return service_manager.get_clip_service(device=device)
+
+def get_beit3_service(device=DEVICE_0):
+    return service_manager.get_beit3_service(device=device)
+
+def get_siglip2_service(device=DEVICE_1):
+    return service_manager.get_siglip2_service(device=device)
