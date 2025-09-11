@@ -243,7 +243,8 @@ scene_understanding/agent/output/
 models/
 
 ocr/suyra/
-api/services/MetaCLIP/
-get_keyframes/TransNetV2/
-get_keyframes/services/MetaCLIP/
-scene_understanding/TStar/
+api/services/MetaCLIP/*
+get_keyframes/services/MetaCLIP/*
+
+get_keyframes/TransNetV2/*
+scene_understanding/TStar/*
