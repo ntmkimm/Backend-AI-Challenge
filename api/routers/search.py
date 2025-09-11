@@ -4,7 +4,7 @@ from collections import defaultdict
 import torch
 
 from typing import List, Dict, Optional
-from models.schemas import Query, ResultItem, InformationOfFrame, HistoryItem
+from models.schemas import Query, ResultItem, InformationOfFrame, HistoryItem, ModelProvider
 from services.redis_service import RedisService
 from services.polar_service import PolarService
 from config.settings import MAX_FRAME_GAP, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES, MIN_FRAME_GAP
@@ -74,7 +74,11 @@ async def get_stage(
     page_size: int = 100,
     redis_service: RedisService = Depends(get_redis_service),
     user_id: str = 'anynomous',
+    use_clip: bool = True,
+    use_siglip2: bool = True,
+    use_beit3: bool = True,
 ):
+    model_provider = ModelProvider(clip=use_clip, beit3=use_beit3, siglip2=use_siglip2)
     print(f"/stage user_id: {user_id}")
     try:
         # Check valid stage_number
@@ -86,7 +90,8 @@ async def get_stage(
         results = await redis_service.get_one_answer_cached_redis(
             query=query,
             ttl_seconds=TIME_CACHE_ONE_QUERY,
-            user_id=user_id
+            user_id=user_id,
+            model_provider=model_provider,
         ) or []
 
         # Pagination
@@ -115,7 +120,11 @@ async def search_text(
     page: int = 1,
     page_size: int = 100,
     user_id: str = 'anynomous',
+    use_clip: bool = True,
+    use_siglip2: bool = True,
+    use_beit3: bool = True,
 ):
+    model_provider = ModelProvider(clip=use_clip, beit3=use_beit3, siglip2=use_siglip2)
     print(f"/search user_id: {user_id}")
     try:
         if page * page_size > TOP_K: return []
@@ -131,6 +140,7 @@ async def search_text(
                 queries=queries,
                 ttl_seconds=TIME_CACHE_ONE_QUERY,
                 user_id=user_id,
+                model_provider=model_provider,
             )
 
             start_time_algo = time.time()
@@ -221,7 +231,11 @@ async def chain_search_text(
     page: int = 1,
     page_size: int = 100,
     user_id: str = 'anonymous', 
+    use_clip: bool = True,
+    use_siglip2: bool = True,
+    use_beit3: bool = True,
 ):
+    model_provider = ModelProvider(clip=use_clip, beit3=use_beit3, siglip2=use_siglip2)
     print(f"/chain_search user_id: {user_id}")
     try:
         if page * page_size > TOP_K: return []
@@ -237,6 +251,7 @@ async def chain_search_text(
                 queries=queries,
                 ttl_seconds=TIME_CACHE_ONE_QUERY,
                 user_id=user_id,
+                model_provider=model_provider,
             )
             
             start_time_algo = time.time()

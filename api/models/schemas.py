@@ -24,4 +24,9 @@ class ResultItem(BaseModel):
 class HistoryItem(BaseModel):
     queries: List[Query]
     
+class ModelProvider(BaseModel):
+    clip: Optional[bool] = True
+    beit3: Optional[bool] = True 
+    siglip2: Optional[bool] = True
+    
 

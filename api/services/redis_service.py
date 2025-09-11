@@ -3,8 +3,8 @@ import json
 import zlib
 import hashlib
 import pickle
-from typing import List
-from models.schemas import Query
+from typing import List, Optional
+from models.schemas import Query, ModelProvider
 from core.module import search_one_query
 from config.settings import REDIS_HOST, REDIS_PORT
 import asyncio
@@ -84,6 +84,7 @@ class RedisService:
         queries: List[Query],
         user_id: str = 'anynomous',
         ttl_seconds: int = 90,
+        model_provider: ModelProvider = None,
     ):
         dislike_labels = await self.get_dislike_labels(user_id=user_id)
         await self.add_queries_to_history(queries=queries, user_id=user_id)
@@ -112,7 +113,8 @@ class RedisService:
             tasks = [
                 search_one_query(
                     q=queries[i],
-                    dislike_labels=dislike_labels
+                    dislike_labels=dislike_labels,
+                    model_provider=model_provider,
                 ) for i in uncached_indices
             ]
 
@@ -145,6 +147,7 @@ class RedisService:
         query: Query,
         user_id: str = 'anynomous',
         ttl_seconds: int = 90,
+        model_provider: ModelProvider = None,
     ):
         key = self.make_query_cache_key(query=query, user_id=user_id)
         cached_bytes = await self.redis_client.get(key)
@@ -158,7 +161,8 @@ class RedisService:
         try:
             result = await search_one_query(
                 q=query,
-                dislike_labels=dislike_labels
+                dislike_labels=dislike_labels,
+                model_provider=model_provider,
             )
         except Exception as e:
             print(f"[Search Error] Exception during search_one_query: {e}")

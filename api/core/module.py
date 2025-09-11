@@ -3,7 +3,7 @@ from config.settings import TOP_K
 from utils.es_module import async_search_by_asr, async_search_by_ocr
 from collections import defaultdict
 from dependencies.services import service_manager
-from models.schemas import Query
+from models.schemas import Query, ModelProvider
 from services.milvus_service import MilvusService
 from services.clip_service import CLIPService
 from services.postgres_service import get_connection, release_connection
@@ -84,17 +84,19 @@ async def search_by_dislike_labels(
 async def search_one_query(
     q: Query,
     dislike_labels: List[int] = None,
+    model_provider: ModelProvider = None,
 ):
     # service
     print("dislike labels: ", dislike_labels)
     polar_service = service_manager.get_polar_service()
     milvus_services = service_manager.get_milvus_services()
-    # beit3_service = None
-    # siglip2_service = None
-    # clip_service = None
-    siglip2_service = service_manager.get_siglip2_service(device=DEVICE_0)
-    clip_service = service_manager.get_clip_service(device=DEVICE_1)
-    beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
+
+    if model_provider.siglip2:
+        siglip2_service = service_manager.get_siglip2_service(device=DEVICE_0)
+    if model_provider.clip:
+        clip_service = service_manager.get_clip_service(device=DEVICE_1)
+    if model_provider.beit3:
+        beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
 
     weighted_score = { 'clip': 0, 'beit3': 0, 'siglip2': 0, 'ocr': 0, 'asr': 0, 'obj': 0, 'image': 0 }
     if clip_service: weighted_score['clip'] = 0.2
