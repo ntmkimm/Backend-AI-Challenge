@@ -248,3 +248,5 @@ get_keyframes/services/MetaCLIP/*
 
 get_keyframes/TransNetV2/*
 scene_understanding/TStar/*
+
+*.txt
