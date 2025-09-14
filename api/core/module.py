@@ -90,7 +90,8 @@ async def search_one_query(
     print("dislike labels: ", dislike_labels)
     polar_service = service_manager.get_polar_service()
     milvus_services = service_manager.get_milvus_services()
-
+    
+    siglip2_service, clip_service, beit3_service = None, None, None
     if model_provider.siglip2:
         siglip2_service = service_manager.get_siglip2_service(device=DEVICE_0)
     if model_provider.clip:
@@ -129,9 +130,12 @@ async def search_one_query(
             img = None
 
         if img is not None:
-            tasks.append(search_by_image(siglip2_service, milvus_services[SIGLIP2_MILVUS], img))
-            # tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
-            # tasks.append(search_by_image(beit3_service, milvus_services[BEIT3_MILVUS], img))
+            if model_provider.siglip2:
+                tasks.append(search_by_image(siglip2_service, milvus_services[SIGLIP2_MILVUS], img))
+            elif model_provider.clip:
+                tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
+            elif model_provider.beit3:
+                tasks.append(search_by_image(beit3_service, milvus_services[BEIT3_MILVUS], img))
         else:
             tasks.append(asyncio.sleep(0, result=None))
     else:

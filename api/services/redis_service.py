@@ -41,10 +41,13 @@ class RedisService:
         labels = await self.redis_client.smembers(f"cluster:{user_id}")
         return [int(l) for l in labels]
 
-    def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal") -> str:
+    def make_tmp_search_result_key(self, user_id: str, queries: List[Query], mode: str = "normal", model_provider: ModelProvider = ModelProvider()) -> str:
         queries_serialized = json.dumps([json.loads(q.json()) for q in queries], sort_keys=True)
         query_hash = hashlib.sha1(queries_serialized.encode("utf-8")).hexdigest()
-        return f"search_cache:{user_id}:{mode}:{query_hash}"
+        
+        model_provider_serialized = json.dumps(model_provider.json(), sort_keys=True)
+        model_provider_hash = hashlib.sha1(model_provider_serialized.encode('utf-8')).hexdigest()
+        return f"search_cache:{user_id}:{mode}:{query_hash}:{model_provider_hash}"
 
     async def save_tmp_search_results_to_cache(self, redis_key, results, ttl_seconds=300):
         await self.redis_client.setex(redis_key, ttl_seconds, pickle.dumps(results))
@@ -68,11 +71,6 @@ class RedisService:
                 print(f"[Redis Warning] Failed to parse history entry: {e}")
         return history
 
-    def make_query_cache_key(self, query: Query, user_id: str = 'anynomous') -> str:
-        data = query.dict()
-        s = json.dumps(data, sort_keys=True, separators=(',', ':'))
-        return f"q:{user_id}:" + hashlib.sha1(s.encode('utf-8')).hexdigest()
-
     def serialize_result(self, obj: any) -> bytes:
         return zlib.compress(json.dumps(obj).encode("utf-8"))
 
@@ -89,7 +87,7 @@ class RedisService:
         dislike_labels = await self.get_dislike_labels(user_id=user_id)
         await self.add_queries_to_history(queries=queries, user_id=user_id)
         
-        keys = [self.make_query_cache_key(query=q, user_id=user_id) for q in queries]
+        keys = [self.make_tmp_search_result_key(user_id=user_id, queries=[q], mode='stage', model_provider=model_provider) for q in queries]
         cached_bytes_list = await self.redis_client.mget(keys)
 
         results = []
@@ -149,7 +147,7 @@ class RedisService:
         ttl_seconds: int = 90,
         model_provider: ModelProvider = None,
     ):
-        key = self.make_query_cache_key(query=query, user_id=user_id)
+        key = self.make_tmp_search_result_key(user_id=user_id, queries=[query], mode='stage', model_provider=model_provider)
         cached_bytes = await self.redis_client.get(key)
         if cached_bytes is not None:
             try:

@@ -84,8 +84,11 @@ async def get_stage(
         # Check valid stage_number
         if not 1 <= stage_number <= len(queries):
             raise HTTPException(status_code=400, detail="stage_number out of range")
-        queries = get_valid_queries(queries)  
+        
+        # queries = get_valid_queries(queries)  
         query = queries[stage_number - 1] # # Chọn đúng stage cần search
+        if not get_valid_queries([query]): 
+            raise HTTPException(status_code=404, detail="stage empty")
         
         results = await redis_service.get_one_answer_cached_redis(
             query=query,
@@ -129,7 +132,7 @@ async def search_text(
     try:
         if page * page_size > TOP_K: return []
         queries = get_valid_queries(queries=queries)
-        redis_key = redis_service.make_tmp_search_result_key(user_id, queries, mode="normal")
+        redis_key = redis_service.make_tmp_search_result_key(user_id, queries, mode="normal", model_provider=model_provider)
         cached_bytes = await redis_service.redis_client.get(redis_key)
         if cached_bytes is not None:
             all_results = pickle.loads(cached_bytes)
@@ -240,7 +243,7 @@ async def chain_search_text(
     try:
         if page * page_size > TOP_K: return []
         queries = get_valid_queries(queries=queries)
-        redis_key = redis_service.make_tmp_search_result_key(user_id, queries, mode="chain")
+        redis_key = redis_service.make_tmp_search_result_key(user_id, queries, mode="chain", model_provider=model_provider)
         cached_bytes = await redis_service.redis_client.get(redis_key)
         if cached_bytes is not None:
             all_results = pickle.loads(cached_bytes)
