@@ -99,7 +99,8 @@ chat_fn = model.module.chat if isinstance(model, torch.nn.DataParallel) else mod
 tokenizer = AutoTokenizer.from_pretrained("5CD-AI/Vintern-1B-v3_5", trust_remote_code=True, use_fast=False)
 print(tokenizer.eos_token, tokenizer.eos_token_id)
 # === Main Execution ===
-ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full_batch1")
+ROOT = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
+output = "./test"
 
 # có 363 video trong batch1
 INDEXING = 363 // 2

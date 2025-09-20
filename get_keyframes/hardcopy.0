@@ -1,0 +1,14 @@
+  File "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/test.py", line 253, in <module>
+    pass
+  File "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/test.py", line 134, in generate_batch
+    {os.linesep.join([f'    {{"frame_index": {i}, "ocr": ""}}' for i in frame_indices])}
+  File "/root/miniconda3/envs/aic/lib/python3.9/site-packages/tenacity/__init__.py", line 338, in wrapped_f
+    return copy(f, *args, **kw)
+  File "/root/miniconda3/envs/aic/lib/python3.9/site-packages/tenacity/__init__.py", line 477, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/root/miniconda3/envs/aic/lib/python3.9/site-packages/tenacity/__init__.py", line 378, in iter
+    result = action(retry_state)
+  File "/root/miniconda3/envs/aic/lib/python3.9/site-packages/tenacity/__init__.py", line 421, in exc_check
+    raise retry_exc from fut.exception()
+tenacity.RetryError: RetryError[<Future at 0x7f2f9fef1cd0 state=finished raised RuntimeError>]
+(aic) root@c8b9cd4f1eaf:/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr#

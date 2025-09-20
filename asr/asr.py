@@ -9,13 +9,13 @@ import os
 from typing import List, Optional
 
 # ---------- Config ----------
-DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
-ROOT = Path("/mlcv2/Datasets/HCMAI25/batch2/video")
+DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/supplement")
+ROOT = Path("/mlcv1/Datasets/HCMAI25/full")
 
 # Segmenting / batching params
 STEP = 3 + 2                  # number of keyframes per audio chunk
 OVERLAP_SECONDS = 1.0      # left overlap to avoid cutting words
-ASR_BATCH_SIZE = 24        # PhoWhisper pipeline batch size
+ASR_BATCH_SIZE = 16        # PhoWhisper pipeline batch size
 FFMPEG_AUDIO_RATE = 16000  # Hz
 
 # ---------- Helpers ----------
@@ -88,8 +88,8 @@ transcriber = pipeline(
 # start_video = 'K01_V001' # include this video
 # end_video = 'K10_V001' # not include this video
 
-start_video = 'K10_V001' # include this video
-end_video = 'K21_V001' # not include this video
+start_video = 'K01_V001' # include this video
+end_video = 'L31_V001' # not include this video
 
 print("start_video: ", start_video)
 print("end_video: ", end_video)
@@ -100,6 +100,9 @@ for _video_path in sorted(ROOT.glob("*.mp4")):
     if not (start_video <= video_name < end_video):
         continue
     video_files.append(_video_path)
+
+video_files = video_files[::-1]
+print("reverse")
 
 for _vid in tqdm(video_files):
     video_id = _vid.stem

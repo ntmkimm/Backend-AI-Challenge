@@ -93,11 +93,14 @@ async def search_one_query(
     
     siglip2_service, clip_service, beit3_service = None, None, None
     if model_provider.siglip2:
-        siglip2_service = service_manager.get_siglip2_service(device=DEVICE_0)
+        # siglip2_service = service_manager.get_siglip2_service(device=DEVICE_0)
+        siglip2_service = None
     if model_provider.clip:
-        clip_service = service_manager.get_clip_service(device=DEVICE_1)
+        clip_service = service_manager.get_clip_service(device=DEVICE_0)
+        # clip_service = None
     if model_provider.beit3:
-        beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
+        # beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
+        beit3_service = None
 
     weighted_score = { 'clip': 0, 'beit3': 0, 'siglip2': 0, 'ocr': 0, 'asr': 0, 'obj': 0, 'image': 0 }
     if clip_service: weighted_score['clip'] = 0.2
@@ -130,12 +133,13 @@ async def search_one_query(
             img = None
 
         if img is not None:
-            if model_provider.siglip2:
-                tasks.append(search_by_image(siglip2_service, milvus_services[SIGLIP2_MILVUS], img))
-            elif model_provider.clip:
-                tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
-            elif model_provider.beit3:
-                tasks.append(search_by_image(beit3_service, milvus_services[BEIT3_MILVUS], img))
+            tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
+            # if model_provider.clip:
+            #     tasks.append(search_by_image(clip_service, milvus_services[OPENCLIP_MILVUS], img))
+            # elif model_provider.beit3:
+            #     tasks.append(search_by_image(beit3_service, milvus_services[BEIT3_MILVUS], img))
+            # elif model_provider.siglip2:
+            #     tasks.append(search_by_image(siglip2_service, milvus_services[SIGLIP2_MILVUS], img))
         else:
             tasks.append(asyncio.sleep(0, result=None))
     else:

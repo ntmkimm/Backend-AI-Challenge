@@ -75,7 +75,7 @@ def process_video(video_path, output_folder, maps_folder, clip_threshold, frame_
     frame_indices = []
     keyframes = []
     prev_features = None
-    prev_keyframe_id = -frame_distance_threshold
+    prev_keyframe_id = None
 
     pbar = tqdm(total=total_frames, desc=f"[GPU {device_id}] Processing {os.path.basename(video_path)}")
 
@@ -91,10 +91,7 @@ def process_video(video_path, output_folder, maps_folder, clip_threshold, frame_
             ret, frame = cap.read()
             if not ret or frame is None or frame.size == 0:
                 break
-            if frame_count < 13:
-                frame_count += 1
-                pbar.update(1)
-                continue
+
             if (frame_count % (fps // sample_rate) == 0) and (frame_count // (fps // sample_rate)) % (skip_frames + 1) == 0:
                 frames.append(frame)
                 frame_indices.append(frame_count)
@@ -104,7 +101,7 @@ def process_video(video_path, output_folder, maps_folder, clip_threshold, frame_
 
                     for i, (frame, feature) in enumerate(zip(frames, features)):
                         frame_id = frame_indices[i]
-                        if prev_features is None or is_keyframe(feature, prev_features, frame_id, prev_keyframe_id, frame_distance_threshold, clip_threshold, proximity_threshold, proximity_clip_threshold):
+                        if prev_features is None or prev_keyframe_id is None or is_keyframe(feature, prev_features, frame_id, prev_keyframe_id, frame_distance_threshold, clip_threshold, proximity_threshold, proximity_clip_threshold):
                             keyframes.append((frame, feature))
                             save_image(frame, os.path.join(keyframes_folder, f"keyframe_{frame_id}.webp"), quality=80, resize_factor=0.5)
                             seconds = frame_id / fps

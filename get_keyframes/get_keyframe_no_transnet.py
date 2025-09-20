@@ -36,7 +36,7 @@ def is_keyframe(curr_features, prev_features, curr_frame_id, prev_frame_id,
     if prev_features is None:
         return True
     clip_similarity = torch.sum(curr_features * prev_features) / (torch.norm(curr_features) * torch.norm(prev_features))
-    frame_distance = curr_frame_id - prev_frame_id
+    frame_distance = int(curr_frame_id) - int(prev_frame_id)
     if frame_distance >= frame_distance_threshold:
         return True
     elif proximity_clip_threshold and proximity_threshold and frame_distance < proximity_threshold:
@@ -74,7 +74,7 @@ def process_video(video_path, output_folder,
 
     # --- New logic to get total frames for the progress bar ---
     total_frames = 0
-    fps = 30 # Default fps
+    fps = 25 # Default fps
     try:
         with av.open(video_path, 'r') as container_check:
             stream_check = container_check.streams.video[0]
@@ -106,7 +106,7 @@ def process_video(video_path, output_folder,
 
             frames, frame_indices = [], []
             prev_features = None
-            prev_keyframe_id = -frame_distance_threshold
+            prev_keyframe_id = None
 
             for frame in container.decode(stream):
                 pbar.update(1) # Update progress for every frame decoded
@@ -135,6 +135,22 @@ def process_video(video_path, output_folder,
                                 prev_keyframe_id = frame_id
                                 all_keyframes += 1
                         frames, frame_indices = [], [] # Reset batch
+                        
+            if frames:  # still some unprocessed frames
+                features_batch = extract_features(frames, model, preprocess, device)
+                features_batch = features_batch / features_batch.norm(dim=-1, keepdim=True).clamp_min(1e-12)
+
+                for i, (img, feat) in enumerate(zip(frames, features_batch)):
+                    frame_id = frame_indices[i]
+                    if is_keyframe(feat, prev_features, frame_id, prev_keyframe_id,
+                                frame_distance_threshold, clip_threshold,
+                                proximity_threshold, proximity_clip_threshold):
+                        save_image(img, os.path.join(keyframes_folder, f"keyframe_{frame_id}.webp"))
+                        np.savez_compressed(os.path.join(vector_folder, f"keyframe_{frame_id}.npz"),
+                                            feature=feat.cpu().numpy())
+                        prev_features = feat
+                        prev_keyframe_id = frame_id
+                        all_keyframes += 1
 
     except av.AVError as e:
         print(f"[GPU {device_id}] AVError while processing {video_path}: {str(e)}")
@@ -252,11 +268,11 @@ def check_video_process_all_frame_ids(video_name: str, input_folder: Path, outpu
 if __name__ == "__main__":
     mp.set_start_method('spawn')
 
-    input_folder = '/mlcv2/Datasets/HCMAI25/batch2/video'
+    input_folder = '/mlcv1/Datasets/HCMAI25/full'
     shot_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/shot_batch2'
-    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch2'
+    output_base_folder = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/supplement'
     
-    video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
+    # video_files = sorted(glob.glob(os.path.join(input_folder, '*.mp4')))
     num_gpus = torch.cuda.device_count()
     
     # clip_threshold = 0.96
@@ -271,7 +287,7 @@ if __name__ == "__main__":
     frame_distance_threshold = 60
     proximity_threshold = None
     proximity_clip_threshold = None
-    batch_size = 8
+    batch_size = 16
     sample_rate = 25
     skip_frames = 4
 
@@ -281,23 +297,33 @@ if __name__ == "__main__":
     # internal: [start_video, end_video)
     # output_base_folder += '_skip=' + str(skip_frames) + "_" + str(clip_threshold) + "_" + str(frame_distance_threshold)
     print("output folder: ", output_base_folder)
-    start_video = 'K01_V001' # include this video
-    end_video = 'K31_V001' # exclude this video
-    print("start video", start_video)
-    print("end video", end_video)
+    # start_video = 'L22_V001' # include this video
+    # end_video = 'L22_V002' # exclude this video
+    # print("start video", start_video)
+    # print("end video", end_video)
     # video_files = video_files[::-1]
     # print('reverse')q
+    
+    video_names = ['K01_V003', 'K01_V020', 'K01_V021', 'K01_V022', 'K01_V023', 'K01_V027', 'K01_V028', 'K01_V029', 'K01_V030', 'K02_V002', 'K02_V004', 'K02_V005', 'K02_V008', 'K02_V011', 'K02_V015', 'K02_V018', 'K02_V019', 'K02_V020', 'K02_V022', 'K02_V024', 'K02_V025', 'K02_V026', 'K02_V027', 'K02_V028', 'K02_V029', 'K02_V030', 'K02_V031', 'K03_V001', 'K03_V002', 'K03_V003', 'K03_V004', 'K03_V005', 'K03_V006', 'K03_V007', 'K03_V008', 'K03_V009', 'K03_V010', 'K03_V011', 'K03_V012', 'K03_V013', 'K03_V014', 'K03_V015', 'K03_V016', 'K03_V017', 'K03_V018', 'K03_V019', 'K03_V020', 'K03_V021', 'K03_V022', 'K03_V023', 'K03_V024', 'K03_V025', 'K03_V026', 'K03_V027', 'K03_V028', 'K03_V029', 'K04_V001', 'K04_V002', 'K04_V003', 'K04_V004', 'K04_V005', 'K04_V006', 'K04_V007', 'K04_V008', 'K04_V009', 'K04_V010', 'K04_V011', 'K04_V012', 'K04_V013', 'K04_V014', 'K04_V015', 'K04_V016', 'K04_V017', 'K04_V018', 'K04_V019', 'K04_V020', 'K04_V021', 'K04_V022', 'K04_V023', 'K04_V024', 'K04_V025', 'K04_V026', 'K04_V027', 'K04_V028', 'K04_V029', 'K04_V030', 'K05_V001', 'K05_V002', 'K05_V003', 'K05_V005', 'K05_V006', 'K05_V008', 'K07_V012', 'K07_V015', 'K07_V016', 'K07_V018', 'K07_V019', 'K07_V020', 'K07_V021', 'K07_V031', 'K08_V001', 'K08_V002', 'K08_V006', 'K08_V008', 'K08_V010', 'K08_V011', 'K08_V012', 'K08_V014', 'K08_V018', 'K08_V019', 'K08_V020', 'K08_V021', 'K08_V023', 'K09_V001', 'K09_V002', 'K09_V003', 'K09_V004', 'K09_V005', 'K09_V006', 'K09_V007', 'K09_V008']
+    # video_names = ['K09_V012', 'K09_V013', 'K09_V014', 'K09_V022', 'K09_V023', 'K09_V027', 'K09_V028', 'K10_V002', 'K10_V003', 'K10_V004', 'K10_V005', 'K10_V006', 'K10_V008', 'K10_V010', 'K10_V014', 'K10_V015', 'K10_V016', 'K10_V019', 'K10_V022', 'K10_V023', 'K10_V024', 'K10_V025', 'K10_V027', 'K11_V001', 'K11_V002', 'K11_V005', 'K11_V007', 'K11_V010', 'K11_V016', 'K11_V017', 'K11_V018', 'K11_V024', 'K11_V026', 'K11_V027', 'K12_V001', 'K12_V002', 'K12_V003', 'K12_V004', 'K12_V005', 'K12_V006', 'K12_V007', 'K12_V008', 'K12_V010', 'K12_V016', 'K12_V017', 'K12_V018', 'K12_V019', 'K12_V020', 'K12_V025', 'K16_V005', 'L21_V001', 'L21_V002', 'L21_V003', 'L21_V005', 'L21_V006', 'L21_V007', 'L21_V008', 'L21_V009', 'L21_V010', 'L21_V011', 'L21_V012', 'L21_V013', 'L21_V014', 'L21_V015', 'L21_V016', 'L21_V017', 'L21_V018', 'L21_V019', 'L21_V021', 'L21_V022', 'L21_V023', 'L21_V024', 'L21_V025', 'L21_V026', 'L21_V027', 'L21_V028', 'L21_V029', 'L21_V030', 'L21_V031', 'L22_V001', 'L22_V002', 'L22_V003', 'L22_V004', 'L22_V005', 'L22_V006', 'L22_V007', 'L22_V008', 'L22_V009', 'L22_V010', 'L22_V011', 'L22_V012', 'L22_V013', 'L22_V014', 'L22_V015', 'L22_V016', 'L22_V017', 'L22_V018', 'L22_V019', 'L22_V020', 'L22_V021', 'L22_V022', 'L22_V023', 'L22_V024', 'L22_V025', 'L22_V026', 'L22_V027', 'L22_V028', 'L22_V029', 'L22_V030', 'L22_V031', 'L24_V004', 'L25_V007', 'L25_V010', 'L25_V027', 'L25_V051', 'L25_V054', 'L25_V056', 'L26_V037', 'L26_V411', 'L28_V004', 'L30_V030']
+    # video_names = video_names[::-1]
+    # print("reverse")
+    print(video_names)
+    
     iii = input("Checking your output folder, type [y/n]")
     if iii != 'y': 
         exit()
     
+    video_files = []
+    for _video_name in video_names:
+        _video = Path(input_folder) / (_video_name + ".mp4")
+        video_files.append(_video)
+    
     for vf in tqdm(video_files):
         video_name = os.path.splitext(os.path.basename(vf))[0]
-        if (start_video <= video_name and video_name < end_video): 
-            # if (Path(shot_folder) / (video_name + ".predictions.txt")).exists():
-            #     continue
-            if not check_video_process_all_frame_ids(video_name=video_name, input_folder=Path(input_folder), output_base_folder=Path(output_base_folder)):
-                video_queue.put(vf)
+        # if (start_video <= video_name and video_name < end_video): 
+        if not check_video_process_all_frame_ids(video_name=video_name, input_folder=Path(input_folder), output_base_folder=Path(output_base_folder)):
+            video_queue.put(vf)
     
     processes = []
     for device_id in range(num_gpus):
