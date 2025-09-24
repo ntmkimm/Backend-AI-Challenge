@@ -17,7 +17,7 @@ conn = psycopg2.connect(
 cur = conn.cursor()
 
 # Drop the table
-cur.execute("DROP TABLE IF EXISTS keyframes CASCADE")
+# cur.execute("DROP TABLE IF EXISTS keyframes CASCADE")
 cur.execute("DROP TABLE IF EXISTS cluster CASCADE")
 
 conn.commit()

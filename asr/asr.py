@@ -9,12 +9,12 @@ import os
 from typing import List, Optional
 
 # ---------- Config ----------
-DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/supplement")
+DATASET = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
 ROOT = Path("/mlcv1/Datasets/HCMAI25/full")
 
 # Segmenting / batching params
-STEP = 3 + 2                  # number of keyframes per audio chunk
-OVERLAP_SECONDS = 1.0      # left overlap to avoid cutting words
+STEP = 6                # number of keyframes per audio chunk
+OVERLAP_SECONDS = 2.0      # left overlap to avoid cutting words
 ASR_BATCH_SIZE = 16        # PhoWhisper pipeline batch size
 FFMPEG_AUDIO_RATE = 16000  # Hz
 
@@ -81,7 +81,7 @@ transcriber = pipeline(
     "automatic-speech-recognition",
     model="vinai/PhoWhisper-base",
     return_timestamps=False,
-    batch_size=ASR_BATCH_SIZE
+    batch_size=ASR_BATCH_SIZE,
 )
 
 # ---------- Main ----------
@@ -107,7 +107,7 @@ print("reverse")
 for _vid in tqdm(video_files):
     video_id = _vid.stem
     video_dir = DATASET / video_id / "keyframes"
-    output_path = DATASET / video_id / "asr.json"
+    output_path = DATASET / video_id / "asr_new.json"
     
     if (output_path.exists()):
         with open(output_path, "r") as fi:

@@ -194,7 +194,7 @@ apis = [
 
 import random
 
-args.API = random.randint(0, len(apis))
+args.API = random.randint(0, len(apis) - 1)
 
 client = genai.Client(
     api_key=apis[args.API],  
@@ -202,7 +202,7 @@ client = genai.Client(
 models = [
     "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
-    "gemini-2.0-flash-lite",
+    # "gemini-2.0-flash-lite",
     "gemini-2.0-flash",
 ]
 
@@ -249,7 +249,7 @@ def generate_from_image(frame_img) -> str:
     contents.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
 
     prompt = f"""
-Trích xuất OCR của ảnh, chú ý cả các chữ nhỏ và mờ trên các vật thể trong ảnh. Nếu là số toán học, hãy viết dưới dạng **LaTeX**
+Trích xuất OCR tiếng việt của ảnh, chú ý cả các chữ nhỏ và mờ trên các vật thể trong ảnh. Nếu là số toán học, hãy viết dưới dạng **LaTeX**
 Bắt buộc trả về JSON tiếng Việt, kể cả khi OCR là chuỗi rỗng.
 
 ```json
@@ -333,7 +333,7 @@ for _video_mp4_path in tqdm(video_files):
     if not keyframe_indices:
         print(f"No keyframes found for {stem}")
         continue
-    keyframe_indices = [4152, 4151, 4140]
+    # keyframe_indices = [4152, 4151, 4140]
     frames = extract_keyframes(_video_mp4_path, keyframe_indices[:])
 
     ocrs = {}

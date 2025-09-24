@@ -4,7 +4,7 @@ from tqdm import tqdm
 root = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/supplement")
 
 start = "K01_V001"
-end = "K21_V001"
+end = "L31_V001"
 
 _videos = []
 for _video in sorted(root.iterdir()):
@@ -16,6 +16,8 @@ count = 0
 heh = []
 for _video in tqdm(_videos):
     keyframes_folder = _video / "keyframes"
+    if not keyframes_folder.exists():
+        print(_video)
     kf_nums = []
     for kf in keyframes_folder.glob("*.webp"):
         kf_nums.append(int(kf.stem[9:]))

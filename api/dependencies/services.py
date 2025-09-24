@@ -40,7 +40,7 @@ class ServiceManager:
         return self.milvus_services[collection_name]
     
     def get_milvus_services(self) -> dict:
-        self.get_milvus_service_with_collection(collection_name=SIGLIP2_MILVUS)
+        # self.get_milvus_service_with_collection(collection_name=SIGLIP2_MILVUS)
         self.get_milvus_service_with_collection(collection_name=OPENCLIP_MILVUS)
         self.get_milvus_service_with_collection(collection_name=BEIT3_MILVUS)
         return self.milvus_services

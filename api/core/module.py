@@ -99,7 +99,7 @@ async def search_one_query(
         clip_service = service_manager.get_clip_service(device=DEVICE_0)
         # clip_service = None
     if model_provider.beit3:
-        # beit3_service = service_manager.get_beit3_service(device=DEVICE_1)
+        # beit3_service = service_manager.get_beit3_service(device=DEVICE_0)
         beit3_service = None
 
     weighted_score = { 'clip': 0, 'beit3': 0, 'siglip2': 0, 'ocr': 0, 'asr': 0, 'obj': 0, 'image': 0 }

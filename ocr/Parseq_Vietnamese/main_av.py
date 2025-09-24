@@ -10,9 +10,9 @@ import av  # Import thư viện PyAV
 
 class Args:
     checkpoint = 'new-parseq.ckpt'
-    root_videos = Path('/mlcv2/Datasets/HCMAI25/batch2/video')
-    root_bboxes = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/batch2_2025')
-    output = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch2')
+    root_videos = Path('/mlcv1/Datasets/HCMAI25/full')
+    root_bboxes = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/supplement_newmodel')
+    output = Path('/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge')
     device = 'cuda'
     batch_size = 4
     num_workers = 1
@@ -92,11 +92,14 @@ def remove_bboxes_in_y_range(infos, lo_bound, up_bound):
 # start_video = 'K05_V001' # include this video
 # end_video = 'K10_V001' # not include this video
 
-start_video = 'K10_V001' # include this video
-end_video = 'K15_V001' # not include this video
+start_video = 'K01_V001' # include this video
+end_video = 'K21_V001' # not include this video
 
-# start_video = 'K15_V001' # include this video
-# end_video = 'K21_V001' # not include this video
+# start_video = 'L21_V001' # include this video
+# end_video = 'L31_V001' # not include this video
+
+# start_video = 'L28_V016' # include this video
+# end_video = 'L28_V017' # not include this video
 
 print("start_video: ", start_video)
 print("end_video: ", end_video)
@@ -105,16 +108,19 @@ import time
 video_files = []
 for _video_path in sorted(args.root_videos.glob("*.mp4")):
     video_name = _video_path.stem
+    if not (args.output / video_name).exists(): continue
     if not (start_video <= video_name < end_video):
         continue
     video_files.append(_video_path)
+    
+video_files = video_files[::-1]
 
 # --- Process Videos (Phần được viết lại) ---
 for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
     while True:
         _video_id = _video_path.stem
         print(f"\nProcessing video: {_video_id}") 
-        output_file = args.output / _video_id / "ocr_parseq_new.json"
+        output_file = args.output / _video_id / "ocr_parseq_newmodel.json"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
         if output_file.exists():
@@ -175,8 +181,10 @@ for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
                         h, w, _ = frame_rgb.shape
 
                         # --- Logic xử lý bbox và OCR (giữ nguyên từ code gốc) ---
-                        # _infos = remove_bboxes_in_y_range(_infos, lo_bound=655, up_bound=690)
-                        _infos = remove_bboxes_in_y_range(_infos, lo_bound=980, up_bound=1040)
+                        if "L" in video_name:
+                            _infos = remove_bboxes_in_y_range(_infos, lo_bound=655, up_bound=690)
+                        else:
+                            _infos = remove_bboxes_in_y_range(_infos, lo_bound=980, up_bound=1040)
                         _infos = remove_containing_boxes(_infos, margin=5)
                         _infos = sort_bboxes_linewise(_infos, y_thresh=15)
                         
@@ -222,6 +230,7 @@ for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
 
                         _video_dic[_frame_id_str] = _infos
                         _video_res[_frame_id_str] = text.lower()
+                        print(text)
                         
                         # Lấy frame mục tiêu tiếp theo
                         target_frame_id = next(frame_id_iterator, None)

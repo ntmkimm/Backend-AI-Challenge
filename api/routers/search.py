@@ -305,10 +305,18 @@ async def chain_search_text(
                     dp_paths[i] = [dp_paths[i - 1][j.item()] + [k] for j, k in zip(max_idxs, range(len(curr_fids)))]
                 
                 
-
+                exist_chain = set()
                 for idx, score in enumerate(dp_scores[-1]):
                     if (score.item() < 0): continue
+                    flag = 1
                     for stage_i, path in enumerate(dp_paths[-1][idx]):
+                        frame_id, frame_score = tensor_stages[stage_i][2][path]
+                        if frame_id in exist_chain:
+                            flag = 0
+                            break 
+                        exist_chain.add(frame_id)
+                    for stage_i, path in enumerate(dp_paths[-1][idx]):
+                        if not flag: break 
                         all_chains.append((score.item(), tensor_stages[stage_i][2][path], vid))
 
             # Sort chains across all videos

@@ -84,8 +84,14 @@ class VisualizationDemo(object):
         predictions = self.predictor(image)
         # Convert image from OpenCV BGR format to Matplotlib RGB format.
         image = image[:, :, ::-1]
+        visualizer = TextVisualizer(image, self.metadata, instance_mode=self.instance_mode, cfg=self.cfg)
 
         if "instances" in predictions:
+            # for rec in predictions["instances"].recs:
+            #     text = visualizer._ctc_decode_recognition(rec=rec)
+            #     text = "{}".format(text)
+            #     print(text, end=" ")
+            # print()
             instances = predictions["instances"].to(self.device)
             boxes = instances.get("bd")
             scores = instances.get("scores")

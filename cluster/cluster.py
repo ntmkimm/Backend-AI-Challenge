@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # Set paths
 root_folder = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge")
-output_folder = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/group/600gr")
+output_folder = Path("/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/group/merge_new_300")
 output_folder.mkdir(parents=True, exist_ok=True)
 
 # Load vectors
@@ -49,12 +49,12 @@ X = normalize(X)
 
 # Clustering with MiniBatchKMeans (no PCA)
 print("Clustering with MiniBatchKMeans...")
-n_clusters = 600  # tune as needed
+n_clusters = 300  # tune as needed
 clusterer = MiniBatchKMeans(n_clusters=n_clusters, batch_size=10000, random_state=42, verbose=1)
 labels = clusterer.fit_predict(X)
 
 # Save labels
-np.save("cluster_labels_600.npy", labels)
+np.save("merge_300.npy", labels)
 print(f"Assigned {n_clusters} clusters using MiniBatchKMeans.")
 
 # Copy images into group folders
@@ -83,7 +83,7 @@ Y = TSNE(n_components=2, perplexity=50, random_state=42).fit_transform(X_vis)
 plt.figure(figsize=(10, 8))
 plt.scatter(Y[:, 0], Y[:, 1], c=labels_vis, cmap='tab20', s=2)
 plt.title("MiniBatchKMeans Clustering Visualization (no PCA)")
-plt.savefig("cluster_labels_600.png", dpi=300)
+plt.savefig("merge_300.png", dpi=300)
 print("Saved clustering plot to kmeans_clusters.png")
 
 print("total time: ", time.time() - start_time)

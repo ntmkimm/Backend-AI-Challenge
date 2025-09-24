@@ -42,11 +42,11 @@ def get_parser():
         metavar="FILE",
         help="path to config file",
     )
-    parser.add_argument("--root-videos", default='/mlcv2/Datasets/HCMAI25/batch2/video')
-    parser.add_argument("--map-folder", default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/batch2')
+    parser.add_argument("--root-videos", default='/mlcv1/Datasets/HCMAI25/full')
+    parser.add_argument("--map-folder", default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge')
     parser.add_argument(
         "--output",
-        default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/batch2_2025',
+        default='/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/json/supplement_newmodel',
         help="A file or directory to save output json files."
     )
 
@@ -59,7 +59,7 @@ def get_parser():
     parser.add_argument(
         "--opts",
         help="Modify config options using the command-line 'KEY VALUE' pairs",
-        default=["MODEL.WEIGHTS", "models/tt_vitaev2-s_finetune_synth-tt-mlt-13-15-textocr.pth"],
+        default=["MODEL.WEIGHTS", "models/vitaev2-s_pretrain_synth-tt-mlt-13-15-textocr.pth"],
         nargs=argparse.REMAINDER,
     )
     
@@ -83,19 +83,14 @@ if __name__ == "__main__":
     # --> internal = [start_video, end_video)
     
     
+    # start_video = 'L28_V016' # include this video
+    # end_video = 'L28_V017' # not include this video
+    
     start_video = 'K01_V001' # include this video
     end_video = 'K21_V001' # not include this video
     
-    # start_video = 'K05_V001' # include this video
-    # end_video = 'K10_V001' # not include this video
-    
-    # start_video = 'K10_V001' # include this video
-    # end_video = 'K15_V001' # not include this video
-    
-    # start_video = 'K15_V001' # include this video
-    # end_video = 'K21_V001' # not include this video
-
-    
+    # start_video = 'L21_V001' # include this video
+    # end_video = 'L31_V001' # not include this video
     
     print("start_video: ", start_video)
     print("end_video: ", end_video)
@@ -106,6 +101,8 @@ if __name__ == "__main__":
         video_name = _video_path.stem
         if start_video <= video_name and video_name < end_video:
             video_files.append(_video_path)
+    
+    video_files = video_files[::-1]
 
     print(f"✅ Found {len(video_files)} videos to process.")
 
@@ -133,7 +130,7 @@ if __name__ == "__main__":
         if not frame_ids:
             print(f"🤷 No keyframes found for {video_stem}. Skipping.")
             continue
-
+        # frame_ids = [4074]
         _video_dic = {}
         # Sử dụng set để tra cứu frame ID cần tìm với hiệu suất O(1)
         frame_ids_to_find = set(frame_ids)
