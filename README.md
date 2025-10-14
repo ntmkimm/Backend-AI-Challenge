@@ -1,4 +1,4 @@
-# BUCCI_GANG_SYSTEM
+# BUCCI_GANG Team System
 <p align="center">
   <img src="demo/pipeline.png" alt="System Architecture">
 </p>
