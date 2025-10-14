@@ -51,7 +51,7 @@ class ElasticsearchClient:
         Each frame gets one document, with both ocr_text and asr_text if available.
         """
         ocr_file = video_dir / "ocr_parseq.json"
-        asr_file = video_dir / "asr.json"
+        asr_file = video_dir / "asr_new.json"
         ocr_data, asr_data = {}, {}
 
         # if ocr_file.exists():

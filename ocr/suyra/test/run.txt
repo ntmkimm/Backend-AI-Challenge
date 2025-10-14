@@ -2,3 +2,7 @@ surya_ocr /mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/ba
 --task_name ocr_with_boxes \
 --images \
 --output_dir /mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/backend/ocr/suyra/test
+
+
+!PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 TORCH_DEVICE=mps OCR_ENGINE=surya marker_single --languages en --paginate_output --force_ocr --output_format markdown ./input.pdf --output_dir ./MarkerOutput/
+

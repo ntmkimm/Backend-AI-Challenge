@@ -93,7 +93,7 @@ def remove_bboxes_in_y_range(infos, lo_bound, up_bound):
 # end_video = 'K10_V001' # not include this video
 
 start_video = 'K01_V001' # include this video
-end_video = 'K21_V001' # not include this video
+end_video = 'L31_V001' # not include this video
 
 # start_video = 'L21_V001' # include this video
 # end_video = 'L31_V001' # not include this video
@@ -113,7 +113,7 @@ for _video_path in sorted(args.root_videos.glob("*.mp4")):
         continue
     video_files.append(_video_path)
     
-video_files = video_files[::-1]
+# video_files = video_files[::-1]
 
 # --- Process Videos (Phần được viết lại) ---
 for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
@@ -181,7 +181,7 @@ for _video_path in tqdm.tqdm(video_files, desc="Overall Progress"):
                         h, w, _ = frame_rgb.shape
 
                         # --- Logic xử lý bbox và OCR (giữ nguyên từ code gốc) ---
-                        if "L" in video_name:
+                        if "L" in _video_id:
                             _infos = remove_bboxes_in_y_range(_infos, lo_bound=655, up_bound=690)
                         else:
                             _infos = remove_bboxes_in_y_range(_infos, lo_bound=980, up_bound=1040)

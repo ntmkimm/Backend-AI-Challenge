@@ -25,7 +25,7 @@ for _video in tqdm(sorted(BASE_PATH.iterdir())):
 
 # Load labels
 labels = np.load(LABEL_PATH)
-print(labels.max(dim=1))
+# print(labels.max(dim=1))
 assert len(labels) == len(keyframe_files), f"Mismatch: {len(labels)} labels vs {len(keyframe_files)} keyframes"
 
 # Insert into DB

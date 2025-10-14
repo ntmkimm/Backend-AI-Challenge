@@ -99,16 +99,16 @@ async def search_one_query(
         clip_service = service_manager.get_clip_service(device=DEVICE_0)
         # clip_service = None
     if model_provider.beit3:
-        # beit3_service = service_manager.get_beit3_service(device=DEVICE_0)
-        beit3_service = None
+        beit3_service = service_manager.get_beit3_service(device=DEVICE_0)
+        # beit3_service = None
 
     weighted_score = { 'clip': 0, 'beit3': 0, 'siglip2': 0, 'ocr': 0, 'asr': 0, 'obj': 0, 'image': 0 }
     if clip_service: weighted_score['clip'] = 0.2
     if beit3_service: weighted_score['beit3'] = 0.2
     if siglip2_service: weighted_score['siglip2'] = 0.2
     full_score = weighted_score['clip'] + weighted_score['beit3'] + weighted_score['siglip2']
-    weighted_score['ocr'] = 2 / 3 * full_score
-    weighted_score['asr'] = 1 / 3 * full_score
+    weighted_score['ocr'] = 1 / 2 * full_score
+    weighted_score['asr'] = 1 / 2 * full_score
     weighted_score['image'] = full_score
     
     # Chuẩn bị các task async / blocking
