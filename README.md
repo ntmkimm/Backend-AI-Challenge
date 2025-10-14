@@ -22,3 +22,13 @@ This tool matches keyframes to scenes based on text descriptions and context ima
   <img src="demo/demo.png" alt="Demo on web">
 </p>
 
+## Directory Structure
+
+| Argument | Description | 
+|----------|-------------|
+| `api` | Backend API for System |
+| `others folder` | Directory containing code for extract features and testing algorithms | 
+
+
+
+
