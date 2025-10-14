@@ -3,7 +3,7 @@
   <img src="demo/pipeline.png" alt="System Architecture">
 </p>
 
-This tool matches furniture objects to scenes based on text descriptions and context image using a combination of CLIP and InternVL models. It processes scenes with masked areas and finds the most suitable objects to place in those areas based on visual and textual similarity.
+This tool matches keyframes to scenes based on text descriptions and context image. 
 
 ## Features
 
