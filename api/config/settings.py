@@ -5,7 +5,7 @@ import sys
 CORS_ORIGINS = [
     "http://localhost:5731",
     "http://192.168.20.156:5731",
-    "http://localhost:8081"
+    "http://localhost:8082"
 ]
 
 # Milvus Settings

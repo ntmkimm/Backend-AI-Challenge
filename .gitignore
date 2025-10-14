@@ -210,7 +210,7 @@ __marimo__/
 *.json
 *.webp
 *.mp4
-*.png
+# *.png
 
 *.pth 
 *.pt 
