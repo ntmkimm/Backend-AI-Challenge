@@ -27,7 +27,7 @@ This tool matches keyframes to scenes based on text descriptions and context ima
 | Argument | Description | 
 |----------|-------------|
 | `api` | Backend API for System |
-| `others folder` | Directory containing code for extract features and testing algorithms | 
+| `others folder` | Directory containing code for extractinge features and testing algorithms | 
 
 
 
