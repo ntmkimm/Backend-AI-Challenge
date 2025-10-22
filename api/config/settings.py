@@ -1,11 +1,23 @@
 from pathlib import Path
 import sys
+from dotenv import load_dotenv
+import os
+
+# Load variables from .env file into environment
+load_dotenv()
+
+# Now you can access them
+tracing = os.getenv("LANGSMITH_TRACING")
+endpoint = os.getenv("LANGSMITH_ENDPOINT")
+api_key = os.getenv("LANGSMITH_API_KEY")
+project = os.getenv("LANGSMITH_PROJECT")
+
 
 # CORS Settings
 CORS_ORIGINS = [
     "http://localhost:5731",
     "http://192.168.20.156:5731",
-    "http://localhost:8082"
+    "http://localhost:8081"
 ]
 
 # Milvus Settings

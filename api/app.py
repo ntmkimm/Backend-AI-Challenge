@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from routers.agents import router as agent_router
 
 import torch.nn.functional as F
 
@@ -32,6 +33,8 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Include routers
+app.include_router(agent_router)
+
 app.include_router(search.router)
 
 # Health check endpoint

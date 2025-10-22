@@ -147,68 +147,97 @@ async def search_text(
             )
 
             start_time_algo = time.time()
-            device = "cuda"
-            # Bước 1: Gộp tất cả hits của từng stage
-            # all_answers là list (n_stage) của list (top_k dict)
-            all_hits = []
-            for stage_idx, hits in enumerate(all_answers):
-                for h in hits:
-                    all_hits.append((stage_idx, int(h["frame_id"]), h["score"], h.get("video_id", "")))
+            # device = "cuda"
+            # # Bước 1: Gộp tất cả hits của từng stage
+            # # all_answers là list (n_stage) của list (top_k dict)
+            # all_hits = []
+            # for stage_idx, hits in enumerate(all_answers):
+            #     for h in hits:
+            #         all_hits.append((stage_idx, int(h["frame_id"]), h["score"], h.get("video_id", "")))
 
-            # Bước 2: Gộp thành từng stage
-            n_stage = len(queries)
-            stage_to_hits = [[] for _ in range(n_stage)]
-            for stage_idx, frame_id, score, video_id in all_hits:
-                stage_to_hits[stage_idx].append((frame_id, score, video_id))
+            # # Bước 2: Gộp thành từng stage
+            # n_stage = len(queries)
+            # stage_to_hits = [[] for _ in range(n_stage)]
+            # for stage_idx, frame_id, score, video_id in all_hits:
+            #     stage_to_hits[stage_idx].append((frame_id, score, video_id))
             
-            # Bước 3: Tạo tensor cho toàn bộ các stage
-            tensor_stages = []
-            device = "cuda"
-            for hits in stage_to_hits:
-                if not hits:
-                    tensor_stages.append((torch.tensor([], device=device), torch.tensor([], device=device), []))
-                    continue
-                stage_sorted = sorted(hits, key=lambda x: x[0])
-                fids = torch.tensor([x[0] for x in stage_sorted], device=device)
-                scores = torch.tensor([x[1] for x in stage_sorted], device=device)
-                tensor_stages.append((fids, scores, stage_sorted))
+            # # Bước 3: Tạo tensor cho toàn bộ các stage
+            # tensor_stages = []
+            # device = "cuda"
+            # for hits in stage_to_hits:
+            #     if not hits:
+            #         tensor_stages.append((torch.tensor([], device=device), torch.tensor([], device=device), []))
+            #         continue
+            #     stage_sorted = sorted(hits, key=lambda x: x[0])
+            #     fids = torch.tensor([x[0] for x in stage_sorted], device=device)
+            #     scores = torch.tensor([x[1] for x in stage_sorted], device=device)
+            #     tensor_stages.append((fids, scores, stage_sorted))
 
-            # Temporal scoring (giống cũ nhưng toàn bộ dataset)
-            if len(tensor_stages[0][0]) == 0:
-                return []  # Không có dữ liệu stage 0
+            # # Temporal scoring (giống cũ nhưng toàn bộ dataset)
+            # if len(tensor_stages[0][0]) == 0:
+            #     return []  # Không có dữ liệu stage 0
 
-            base_fids, base_scores, base_raw = tensor_stages[0]
-            final_scores = base_scores.clone()
-            for curr_fids, curr_scores, curr_raw in tensor_stages[1:]:
-                if len(curr_fids) == 0:
-                    continue
-                curr_video_ids = np.array([x[2] for x in curr_raw])
-                base_video_ids = np.array([x[2] for x in base_raw])
-                # Tạo mask so sánh video_id
-                video_mask = (curr_video_ids[:, None] == base_video_ids[None, :])
-                diff = curr_fids[:, None] - base_fids[None, :]
-                valid = (diff > 0) & (diff <= MAX_FRAME_GAP)
-                # Dùng mask numpy convert thành torch để AND với valid
-                video_mask_torch = torch.from_numpy(video_mask).to(valid.device)
-                valid = valid & video_mask_torch
-                decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 30)
-                boost = curr_scores[:, None] * decay
-                boost = torch.where(valid, boost, torch.zeros_like(boost))
-                num_valid = valid.sum(dim=0).clamp(min=1)
-                final_scores += boost.sum(dim=0) / num_valid
+            # base_fids, base_scores, base_raw = tensor_stages[0]
+            # final_scores = base_scores.clone()
+            # for curr_fids, curr_scores, curr_raw in tensor_stages[1:]:
+            #     if len(curr_fids) == 0:
+            #         continue
+            #     curr_video_ids = np.array([x[2] for x in curr_raw])
+            #     base_video_ids = np.array([x[2] for x in base_raw])
+            #     # Tạo mask so sánh video_id
+            #     video_mask = (curr_video_ids[:, None] == base_video_ids[None, :])
+            #     diff = curr_fids[:, None] - base_fids[None, :]
+            #     valid = (diff > 0) & (diff <= MAX_FRAME_GAP)
+            #     # Dùng mask numpy convert thành torch để AND với valid
+            #     video_mask_torch = torch.from_numpy(video_mask).to(valid.device)
+            #     valid = valid & video_mask_torch
+            #     decay = torch.sigmoid((MAX_FRAME_GAP / 2 - diff.float()) / 30)
+            #     boost = curr_scores[:, None] * decay
+            #     boost = torch.where(valid, boost, torch.zeros_like(boost))
+            #     num_valid = valid.sum(dim=0).clamp(min=1)
+            #     final_scores += boost.sum(dim=0) / num_valid
 
-            final_results = []
-            for i in range(len(base_fids)):
-                frame_id, score, video_id = base_raw[i]  # just unpack the 3-tuple
-                final_results.append((final_scores[i].item(), frame_id, video_id))
-
+            # final_results = []
+            # for i in range(len(base_fids)):
+            #     frame_id, score, video_id = base_raw[i]  # just unpack the 3-tuple
+            #     final_results.append((final_scores[i].item(), frame_id, video_id))
+            # final_results.sort(key=lambda x: -x[0])
+            # all_results = final_results 
             # Format lại kết quả
-            end_time = time.time()
             print("TEMPORAL: ")
+            
+            stage_results = []
+            for stage_idx, hits in enumerate(all_answers):
+                if not hits:
+                    continue
+
+                # Extract and normalize scores
+                scores = [h["score"] for h in hits]
+                min_s, max_s = min(scores), max(scores)
+                norm_scores = [(s - min_s) / (max_s - min_s) if max_s != min_s else 1.0 for s in scores]
+
+                # Store per stage
+                stage_results.append([
+                    (int(h["frame_id"]), h.get("video_id", ""), ns)
+                    for h, ns in zip(hits, norm_scores)
+                ])
+
+            # --- Find common video_ids across all stages ---
+            video_sets = [set(v for _, v, _ in stage) for stage in stage_results]
+            common_videos = set.intersection(*video_sets) if video_sets else set()
+
+            # --- Keep only results from videos that appear in all stages ---
+            all_results = []
+            for stage in stage_results:
+                for frame_id, video_id, score in stage:
+                    if video_id in common_videos:
+                        all_results.append((score, frame_id, video_id))
+
+            # --- Sort final results by normalized score descending ---
+            all_results.sort(key=lambda x: -x[0])
+            end_time = time.time() 
             print("Time for algorithm: ", end_time - start_time_algo)
             print("Tong thoi gian xu li: ", end_time - start_time)
-            final_results.sort(key=lambda x: -x[0])
-            all_results = final_results  
             await redis_service.save_tmp_search_results_to_cache(redis_key=redis_key, results=all_results, ttl_seconds=TIME_CACHE_QUERIES)
         start = (page - 1) * page_size
         end = start + page_size
