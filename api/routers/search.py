@@ -7,8 +7,9 @@ from typing import List, Dict, Optional
 from models.schemas import Query, ResultItem, InformationOfFrame, HistoryItem, ModelProvider
 from services.redis_service import RedisService
 from services.polar_service import PolarService
+from services.interval_service import IntervalService
 from config.settings import MAX_FRAME_GAP, TOP_K, TIME_CACHE_ONE_QUERY, TIME_CACHE_QUERIES, MIN_FRAME_GAP
-from dependencies.services import get_polar_service, get_redis_service
+from dependencies.services import get_polar_service, get_redis_service, get_interval_service
 from core.utils import get_valid_queries
 from utils.es_module import get_text_by_frame
 from collections import defaultdict
@@ -262,6 +263,7 @@ async def search_text(
 async def chain_search_text(
     queries: List[Query],
     redis_service: RedisService = Depends(get_redis_service),
+    interval_service: IntervalService = Depends(get_interval_service),
     page: int = 1,
     page_size: int = 100,
     user_id: str = 'anonymous', 
@@ -346,8 +348,15 @@ async def chain_search_text(
                             flag = 0
                             break 
                         exist_chain.add(frame_id)
+                    interval = None, None
                     for stage_i, path in enumerate(dp_paths[-1][idx]):
                         if not flag: break 
+                        frame_id, _ = tensor_stages[stage_i][2][path]
+                        if stage_i == 0: 
+                            interval = interval_service.get_interval(vid, frame_id)
+                        elif not ((not interval[0] or (interval[0] and frame_id >= interval[0])) and \
+                            (not interval[1]) or (interval[1] and frame_id <= interval[1])):
+                            break
                         all_chains.append((score.item(), tensor_stages[stage_i][2][path], vid))
 
             # Sort chains across all videos
@@ -368,7 +377,7 @@ async def chain_search_text(
         # Convert ra ResultItem
         result_list = []
         for i, (score, frameinfo, video_id) in enumerate(paged_results):
-            frame_id, frame_score = frameinfo
+            frame_id, _ = frameinfo
             stage = i % len(queries)
             result_list.append(
                 ResultItem(

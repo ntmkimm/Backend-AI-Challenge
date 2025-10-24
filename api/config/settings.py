@@ -39,7 +39,7 @@ DEVICE_1 = "cuda:1"
 
 OBJECT_DATABASE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/full/merge/objects.parquet"
 
-PARAPHRASE_MODEL = "humarin/chatgpt_paraphraser_on_T5_base"
+INTERVAL_JSON_FILE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/AIChallenge2025/dataset/interval.json"
 
 # Redis Settings
 REDIS_HOST = "redis-server"

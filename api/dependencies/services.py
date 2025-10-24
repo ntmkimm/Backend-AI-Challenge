@@ -9,8 +9,7 @@ from services.milvus_service import MilvusService
 from services.polar_service import PolarService
 from services.beit3_service import BEiT3Service
 from services.siglip2_service import SigLIP2Service
-from services.paraphrase_service import ParaphraseService
-
+from services.interval_service import IntervalService
 
 from config.settings import (
     OPENCLIP_MILVUS,
@@ -23,17 +22,18 @@ from config.settings import (
 class ServiceManager:
     def __init__(self):
         self.clip_service: Optional[CLIPService] = None
-        self.redis_service: Optional[RedisService] = None
+        self.redis_service = None
         self.polar_service: Optional[PolarService] = None
-        self.paraphrase_service: Optional[ParaphraseService] = None
         self.beit3_service: Optional[BEiT3Service] = None
         self.siglip2_service: Optional[SigLIP2Service] = None
+        
         self.milvus_services: Dict[str, Optional[MilvusService]] = {
             OPENCLIP_MILVUS: None,
             BEIT3_MILVUS: None,
             SIGLIP2_MILVUS: None,
         }
-
+        self.interval_service: Optional[IntervalService] = None
+        
         self.lock = threading.Lock()
         self.async_lock = asyncio.Lock()
 
@@ -77,12 +77,12 @@ class ServiceManager:
                     self.polar_service = PolarService()
         return self.polar_service
 
-    def get_paraphrase_service(self) -> ParaphraseService:
-        if self.paraphrase_service is None:
+    def get_interval_service(self) -> IntervalService:
+        if self.interval_service is None:
             with self.lock:
-                if self.paraphrase_service is None:
-                    self.paraphrase_service = ParaphraseService()
-        return self.paraphrase_service
+                if self.interval_service is None:
+                    self.interval_service = IntervalService()
+        return self.interval_service
 
     def get_beit3_service(self, device=DEVICE_0) -> BEiT3Service:
         if self.beit3_service is None:
@@ -116,8 +116,8 @@ async def get_redis_service():
 def get_polar_service() -> PolarService:
     return service_manager.get_polar_service()
 
-def get_paraphrase_service() -> ParaphraseService:
-    return service_manager.get_paraphrase_service()
+def get_interval_service() -> IntervalService:
+    return service_manager.get_interval_service()
 
 def get_clip_service(device=DEVICE_0) -> CLIPService:
     return service_manager.get_clip_service(device=device)
