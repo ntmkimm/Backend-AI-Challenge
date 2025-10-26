@@ -2,6 +2,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 from config.settings import INTERVAL_JSON_FILE
 import bisect
+import json
 
 class IntervalService:
     def __init__(self):
@@ -9,9 +10,10 @@ class IntervalService:
         self.data = {}
         self.soft_outside_interval = 75
         try:
-            with open(INTERVAL_JSON_FILE) as fi:
-                self.data = fi.loads(fi)
+            with open(INTERVAL_JSON_FILE, "r") as fi:
+                self.data = json.load(fi)
         except:
+            print("EMPTY INTERVAL DATA, NO PRUNE FOR SHOT")
             self.data = {}
 
     def get_interval(self, video_id: str, keyframe_id: int):
@@ -20,7 +22,6 @@ class IntervalService:
             return None, None
         # Tìm vị trí chèn để giữ list sorted
         pos = bisect.bisect_left(frames, keyframe_id)
-
         # Lấy phần tử trước và sau
         left = None
         if pos > 0 and frames[pos - 1] - self.soft_outside_interval >= 0:

@@ -107,8 +107,8 @@ async def search_one_query(
     if beit3_service: weighted_score['beit3'] = 0.2
     if siglip2_service: weighted_score['siglip2'] = 0.2
     full_score = weighted_score['clip'] + weighted_score['beit3'] + weighted_score['siglip2']
-    weighted_score['ocr'] = 1 / 2 * full_score
-    weighted_score['asr'] = 1 / 2 * full_score
+    weighted_score['ocr'] = 3 / 5 * full_score
+    weighted_score['asr'] = 2 / 5 * full_score
     weighted_score['image'] = full_score
     
     # Chuẩn bị các task async / blocking

@@ -339,26 +339,38 @@ async def chain_search_text(
                 
                 
                 exist_chain = set()
-                for idx, score in enumerate(dp_scores[-1]):
-                    if (score.item() < 0): continue
-                    flag = 1
-                    for stage_i, path in enumerate(dp_paths[-1][idx]):
-                        frame_id, frame_score = tensor_stages[stage_i][2][path]
-                        if frame_id in exist_chain:
-                            flag = 0
-                            break 
-                        exist_chain.add(frame_id)
-                    interval = None, None
-                    for stage_i, path in enumerate(dp_paths[-1][idx]):
-                        if not flag: break 
-                        frame_id, _ = tensor_stages[stage_i][2][path]
-                        if stage_i == 0: 
-                            interval = interval_service.get_interval(vid, frame_id)
-                        elif not ((not interval[0] or (interval[0] and frame_id >= interval[0])) and \
-                            (not interval[1]) or (interval[1] and frame_id <= interval[1])):
-                            break
-                        all_chains.append((score.item(), tensor_stages[stage_i][2][path], vid))
 
+                for idx, score in enumerate(dp_scores[-1]):
+                    s = score.item()
+                    if s < 0:
+                        continue
+
+                    paths = dp_paths[-1][idx]
+                    frames = [tensor_stages[stage_i][2][path] for stage_i, path in enumerate(paths)]
+                    frame_ids = [f[0] for f in frames]
+
+                    # Cho phép frame trùng nếu nó thuộc stage_i = 0
+                    duplicated = any(fid in exist_chain for fid in frame_ids[1:])
+                    if duplicated:
+                        continue
+
+                    # Cập nhật: chỉ thêm các frame từ stage_i > 0 vào exist_chain
+                    exist_chain.update(frame_ids[1:])
+
+                    # Kiểm tra interval
+                    interval = interval_service.get_interval(vid, frame_ids[0])
+                    if interval[0] or interval[1]:
+                        inside = all(
+                            ((interval[0] is None or fid >= interval[0]) and
+                            (interval[1] is None or fid <= interval[1]))
+                            for fid in frame_ids
+                        )
+                        if not inside:
+                            continue
+
+                    # Nếu qua hết các bước, thêm vào kết quả
+                    all_chains.extend((s, f, vid) for f in frames)
+                    
             # Sort chains across all videos
             all_chains.sort(key=lambda x: -x[0])
 

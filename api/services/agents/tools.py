@@ -302,9 +302,11 @@ async def _query_refinement_core(
     # --- LLM Chains (no changes here) ---
     from langchain_core.prompts import ChatPromptTemplate
     ner_prompt = ChatPromptTemplate.from_template(
-        "Extract all proper nouns (like places, people, or specific event names) from the following text. "
-        "If none are found, respond with an empty string. Text: '{input}'"
-    )
+    "From the following text, extract the key entities (like people, places, or specific items) "
+    "and any surrounding contextual keywords (like actions, descriptions, or related objects). "
+    "Combine them into a concise search query. For example, if the text is 'show me videos of that person walking near the Eiffel Tower', "
+    "the output should be 'person walking near Eiffel Tower'. If no key entities are found, respond with an empty string. Text: '{input}'"
+)
     refine_prompt = ChatPromptTemplate.from_template(
         "Rewrite the following user query to be a more effective and precise video search query. "
         "Focus on clear, descriptive language. Original Query: '{input}'\n\n"
@@ -351,7 +353,7 @@ async def _query_refinement_core(
             if proper_nouns:
                 refinement_log.append(f"Found proper nouns: '{proper_nouns}'. Searching web for context.")
                 try:
-                    web_results_dict = await duckduckgo_web_search_tool(query=proper_nouns, max_results=3)
+                    web_results_dict = await duckduckgo_web_search_tool.ainvoke({"query": proper_nouns, "max_results": 3})
                     snippets = [r.get('snippet', '') for r in web_results_dict.get('items', []) if r.get('snippet')]
                     web_context = " ".join(snippets)
                     

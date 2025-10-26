@@ -5,6 +5,7 @@ import asyncio
 import json
 from langchain_core.messages import BaseMessage, AIMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
+import uuid
 # If you want checkpointing, uncomment MemorySaver and see controller note.
 from langgraph.checkpoint.memory import MemorySaver
 from services.agents.llms import make_llm
@@ -21,6 +22,69 @@ from .chain import build_chain
 from .schema import LCAgentJSON
 from langchain_core.prompts.chat import ChatPromptTemplate
 # ---------- Strong schemas ----------
+# services/agents/agent_graph.py
+
+# ... (giữ nguyên các import và các hàm khác)
+
+# =========== THAY THẾ HÀM CŨ BẰNG HÀM NÀY ============
+def auto_search_after_refinement(state: OutSchema) -> Dict[str, Any]:
+    """
+    Kiểm tra xem query_refinement_tool có nằm trong SỐ CÁC TOOL VỪA CHẠY hay không.
+    Nếu có, tự động tạo một lệnh gọi đến video_search_tool.
+    Điều này ngăn chặn vòng lặp vô hạn.
+    """
+    messages = state.get("messages", [])
+    all_tool_outputs = state.get("tool_outputs", [])
+    if not all_tool_outputs or len(messages) < 2:
+        return {}
+
+    # Tìm AIMessage gần nhất đã gọi tool.
+    # Thông thường nó sẽ là message thứ 2 từ cuối (`messages[-2]`).
+    last_ai_message_with_tools = None
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and msg.tool_calls:
+            last_ai_message_with_tools = msg
+            break
+            
+    if not last_ai_message_with_tools:
+        return {}
+
+    # Xác định có bao nhiêu tool vừa được chạy
+    num_tools_just_run = len(last_ai_message_with_tools.tool_calls)
+    
+    # Chỉ kiểm tra các kết quả tool vừa được thêm vào
+    recent_tool_outputs = all_tool_outputs[-num_tools_just_run:]
+
+    refinement_output = None
+    for output in recent_tool_outputs:
+        if output.get("tool") == "query_refinement_tool" and output.get("ok"):
+            refinement_output = output.get("output", {})
+            break
+
+    if refinement_output:
+        refined_queries = refinement_output.get("items", [])
+        if refined_queries:
+            print(">>> Đã phát hiện kết quả tinh chỉnh. Tự động kích hoạt video_search_tool.")
+            
+            search_tool_call = {
+                "name": "video_search_tool",
+                "args": {"queries": refined_queries},
+                "id": f"call_{uuid.uuid4()}",
+            }
+            
+            ai_message_with_search = AIMessage(
+                content="",
+                tool_calls=[search_tool_call],
+                # Gán ID của tool_call gốc để dễ dàng truy vết (tùy chọn nhưng hữu ích)
+                tool_call_id=last_ai_message_with_tools.tool_calls[0].get("id")
+            )
+            
+            return {"messages": state["messages"] + [ai_message_with_search]}
+
+    print(">>> Không phát hiện kết quả tinh chỉnh trong lần chạy tool gần nhất, tiếp tục luồng bình thường.")
+    return {}
+
+# ===================================================
 
 class InSchema(TypedDict):
     """Input to the graph."""
@@ -190,11 +254,13 @@ def build_tool_agent(
     )
 
     # Add all nodes to the graph
-    graph.add_node("pre_router", pre_router) # Add the new router node
+# Add all nodes to the graph
+    graph.add_node("pre_router", pre_router)
     graph.add_node("intent_parser", intent_parser)
     graph.add_node("model", call_model)
     graph.add_node("tools", call_tools)
-
+    # THÊM NODE MỚI VÀO GRAPH
+    graph.add_node("auto_search_after_refinement", auto_search_after_refinement)
     # --- Define the new routing logic ---
 
     def route_after_pre_router(state: OutSchema) -> str:
@@ -214,12 +280,22 @@ def build_tool_agent(
         if isinstance(last, AIMessage) and last.tool_calls:
             return "tools"
         return END
+    def route_after_auto_search(state: OutSchema) -> str:
+        """
+        Sau khi chạy node auto_search, kiểm tra xem có tool_call mới được tạo ra không.
+        Nếu có, quay lại node 'tools'. Nếu không, đi tiếp đến 'model'.
+        """
+        last = state["messages"][-1] if state.get("messages") else None
+        if isinstance(last, AIMessage) and last.tool_calls:
+            # Một tool_call mới (video_search) đã được thêm vào
+            return "tools" 
+        # Không có tool_call mới, tiếp tục luồng bình thường đến model để tổng hợp kết quả
+        return "model"
 
     # --- Connect the graph edges ---
 
-    graph.add_edge(START, "pre_router") # The new entry point
+    graph.add_edge(START, "pre_router")
     
-    # Conditional edge from the pre-router
     graph.add_conditional_edges(
         "pre_router",
         route_after_pre_router,
@@ -229,10 +305,23 @@ def build_tool_agent(
         }
     )
     
-    # The rest of the graph connections
     graph.add_conditional_edges("intent_parser", route_after_intent, {"model": "model", END: END})
     graph.add_conditional_edges("model", should_call_tools, {"tools": "tools", END: END})
-    graph.add_edge("tools", "model")
+    
+    # THAY ĐỔI QUAN TRỌNG:
+    # 1. Sau khi 'tools' chạy xong, đi đến node 'auto_search_after_refinement'
+    graph.add_edge("tools", "auto_search_after_refinement")
+
+    # 2. Sau khi node 'auto_search' chạy, dùng router mới để quyết định
+    graph.add_conditional_edges(
+        "auto_search_after_refinement",
+        route_after_auto_search,
+        {
+            "tools": "tools", # Nếu có tool mới, quay lại chạy tools
+            "model": "model"  # Nếu không, đi đến model để kết thúc
+        }
+    )
+
 
     # If you enable checkpointing:
     if use_memory:
