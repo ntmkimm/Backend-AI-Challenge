@@ -1,7 +1,7 @@
 from pymilvus import connections, utility
 
 # Connect to Milvus server
-connections.connect(host='192.168.20.156', port='19530')
+connections.connect(host='192.168.20.150', port='19532')
 
 # List all collections in Milvus
 collections = utility.list_collections()

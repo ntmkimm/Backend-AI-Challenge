@@ -15,15 +15,16 @@ project = os.getenv("LANGSMITH_PROJECT")
 
 # CORS Settings
 CORS_ORIGINS = [
-    "http://localhost:5731",
-    "http://192.168.20.156:5731",
+    "http://localhost:5732",
+    # "http://192.168.20.150:5731",
+    "http://192.168.20.150:5732",
     "http://localhost:8081",
     "http://localhost:8091"
 ]
 
 # Milvus Settings
-MILVUS_HOST = "192.168.20.156"
-MILVUS_PORT = "19530"
+MILVUS_HOST = "192.168.20.150"
+MILVUS_PORT = "19532"
 
 # NOTE: CHÚ Ý EMBEDDING
 # CLIP_MODEL = "metaclip"
@@ -31,9 +32,9 @@ MILVUS_PORT = "19530"
 CLIP_MODEL = "openclip"
 
 # COLLECTION MILVUS
-OPENCLIP_MILVUS = "AIC25_openclip"
-BEIT3_MILVUS = "AIC25_beit3"
-SIGLIP2_MILVUS = "AIC25_siglip2"
+OPENCLIP_MILVUS = "quannh_AIC25_openclip"
+BEIT3_MILVUS = "quannh_AIC25_beit3"
+SIGLIP2_MILVUS = "quannh_AIC25_siglip2"
 
 DEVICE_0 = "cuda:0" 
 DEVICE_1 = "cuda:1"

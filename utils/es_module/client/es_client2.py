@@ -56,10 +56,10 @@ class ElasticsearchClient:
 
         # if ocr_file.exists():
         try:
-            with open(video_dir / "ocr_parseq_newmodel.json", 'r', encoding='utf-8') as f:
+            with open(video_dir / "ocr.json", 'r', encoding='utf-8') as f:
                 ocr_data = json.load(f)
         except:
-            with open(ocr_file, 'r', encoding='utf-8') as f:
+            with open(video_dir / "ocr_parseq_newmodel.json", 'r', encoding='utf-8') as f:
                 ocr_data = json.load(f)
                 
         if asr_file.exists():

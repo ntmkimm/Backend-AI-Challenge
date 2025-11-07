@@ -3,7 +3,7 @@ import psycopg2
 DB_NAME = "keyframes_db"
 DB_USER = "quannh"
 DB_PASSWORD = "1"
-DB_HOST = "192.168.20.156"
+DB_HOST = "192.168.20.150"
 DB_PORT = 5432
 
 conn = psycopg2.connect(

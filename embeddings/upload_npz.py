@@ -14,16 +14,16 @@ import torch.multiprocessing as mp
 
 # === CONFIG ===
 DIMENSION = 1024
-MILVUS_HOST = "192.168.20.156"
-MILVUS_PORT = "19530"
+MILVUS_HOST = "192.168.20.150"
+MILVUS_PORT = "19532"
 BATCH_SIZE = 1024          # batch insert to Milvus (vectors only; no GPU needed here)
 FLUSH_INTERVAL = 20000    # flush every N rows
 
-COLLECTION_NAME = 'AIC25_beit3'
+COLLECTION_NAME = 'quannh_AIC25_beit3'
 NPZ_KEY = "embedding"
 SAVE_FOLDER_NAME = "beit3_vector"
 
-# COLLECTION_NAME = 'AIC25_openclip'
+# COLLECTION_NAME = 'quannh_AIC25_openclip'
 # NPZ_KEY = "feature"
 # SAVE_FOLDER_NAME = "vector_file"
 
@@ -139,6 +139,7 @@ def encode_worker(rank: int, world_size: int, indexed_paths, device_ids):
 
 def main():
     # Connect control-plane client
+    print("connect...")
     connections.connect(host=MILVUS_HOST, port=MILVUS_PORT)
 
     # Create collection if needed (drop if exists)
@@ -151,6 +152,7 @@ def main():
         utility.drop_collection(COLLECTION_NAME)
 
     # Define schema
+    print("create schema...")
     schema = CollectionSchema([
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=False),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION),
@@ -170,7 +172,7 @@ def main():
     }
     collection.create_index("embedding", index_params)
     collection.load()
-
+    print("get disk")
     # Gather image paths (we trust vectors exist next to them)
     image_paths = []
     # ROOT/<video>/keyframes/*.webp

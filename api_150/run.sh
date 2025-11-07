@@ -21,7 +21,7 @@ run_uvicorn() {
         # uvicorn app:app --reload --port 5731 --host=0.0.0.0 --lifespan=auto --workers 1 \
         #     --limit-concurrency 1000 --backlog 2048 --http httptools --timeout-keep-alive 1000 \
         # --reload-exclude 'dependencies/*' --reload-exclude 'services/*' --reload-exclude 'core/*' --reload-exclude 'config/*'
-        gunicorn app:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:5731 --timeout 1200 --keep-alive 1000 
+        gunicorn app:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:5732 --timeout 1200 --keep-alive 1000 
         echo "Server crashed or exited. Restarting in 2s..."
         sleep 2
     done
